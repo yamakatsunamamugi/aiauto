@@ -203,6 +203,7 @@ class TestDataHandler(unittest.TestCase):
         
         # モックの戻り値を設定
         self.mock_sheets_client.get_sheet_names.return_value = ["Sheet1", "Sheet2"]
+        self.mock_sheets_client.validate_sheet_structure.return_value = (True, [])
         
         is_valid, errors = self.data_handler.validate_sheet_configuration(config)
         

@@ -1,6 +1,6 @@
 {
-  "spreadsheet_url": "",
-  "sheet_name": "",
+  "spreadsheet_url": "https://docs.google.com/spreadsheets/d/test/edit",
+  "sheet_name": "テストシート",
   "ai_configs": {
     "chatgpt": {
       "url": "https://chat.openai.com",
@@ -47,6 +47,21 @@
     "level": "INFO",
     "file": "logs/app.log"
   },
-  "selected_ais": [],
-  "ai_mode": "simple"
+  "selected_ais": [
+    "chatgpt",
+    "claude"
+  ],
+  "ai_mode": "simple",
+  "column_ai_settings": {
+    "C": {
+      "ai_service": "chatgpt",
+      "model": "gpt-4.1",
+      "mode": "creative"
+    },
+    "E": {
+      "ai_service": "claude",
+      "model": "claude-3.5-sonnet",
+      "mode": "precise"
+    }
+  }
 }
