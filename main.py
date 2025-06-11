@@ -48,8 +48,8 @@ def main():
     logger = setup_logging()
     
     try:
-        # GUI起動
-        from src.gui.main_window import MainWindow
+        # GUI起動（担当者A実装予定）
+        # from src.gui.main_window import MainWindow
         
         # 統合機能を実装する場合のコールバック設定例
         # （他担当者のモジュールが完成後に有効化）
@@ -61,9 +61,9 @@ def main():
                 # sheets_client = SheetsClient()
                 # app.set_get_sheet_names_callback(sheets_client.get_sheet_names)
                 
-                # ブラウザ自動化連携（担当者C実装予定）
-                # from src.automation.automation_controller import AutomationController
-                # automation_controller = AutomationController()
+                # ブラウザ自動化連携
+                from src.automation.automation_controller import AutomationController
+                automation_controller = AutomationController()
                 # app.set_start_automation_callback(automation_controller.start_automation)
                 
                 logger.info("統合機能の設定が完了しました")
@@ -71,14 +71,29 @@ def main():
                 logger.warning(f"統合モジュールが未実装です: {e}")
                 logger.info("一部機能は開発中のため利用できません")
         
-        logger.info("GUIアプリケーションを起動します")
-        app = MainWindow()
+        logger.info("ブラウザ自動化システムをテストします")
         
-        # 統合機能設定
-        setup_integration(app)
+        # Automation機能のテスト実行
+        import asyncio
+        from src.automation.automation_controller import AutomationController
+        from src.automation.browser_manager import BrowserManager
         
-        # アプリケーション実行
-        app.run()
+        async def test_automation():
+            logger.info("AutomationController初期化テスト")
+            controller = AutomationController()
+            logger.info("✅ AutomationController初期化成功")
+            
+            logger.info("BrowserManager初期化テスト")
+            browser_manager = BrowserManager()
+            logger.info("✅ BrowserManager初期化成功")
+            
+            logger.info("利用可能なAIサービス一覧取得テスト")
+            available_ais = controller.get_available_ais()
+            logger.info(f"✅ 利用可能なAI: {list(available_ais.keys())}")
+        
+        logger.info("非同期テスト実行中...")
+        asyncio.run(test_automation())
+        logger.info("🎉 ブラウザ自動化システムのテスト完了")
         
     except ImportError as e:
         logger.error(f"モジュールのインポートに失敗しました: {e}")
