@@ -38,7 +38,10 @@
     "retry_delay": 10,
     "browser": "chrome",
     "headless": false,
-    "timeout": 30
+    "timeout": 30,
+    "use_real_chrome_profile": false,
+    "slow_mo": 100,
+    "task_interval": 2
   },
   "logging": {
     "level": "INFO",

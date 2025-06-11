@@ -41,6 +41,7 @@ class DataHandler:
         """
         self.logger = logging.getLogger(__name__)
         self.sheets_client = sheets_client
+        self.current_sheet_config = None  # 現在のシート設定を保持
         self.logger.info("DataHandlerが初期化されました")
     
     def load_and_validate_sheet(self, config: SheetConfig) -> SpreadsheetData:
@@ -58,6 +59,9 @@ class DataHandler:
         """
         try:
             self.logger.info(f"スプレッドシートを読み込み中: {config.sheet_name}")
+            
+            # 現在のシート設定を保存
+            self.current_sheet_config = config
             
             # データ読み込み
             raw_data = self.sheets_client.read_sheet_data(

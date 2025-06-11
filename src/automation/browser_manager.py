@@ -41,6 +41,31 @@ class BrowserManager:
         Returns:
             str: Chromeユーザーデータディレクトリのパス
         """
+        # 設定で実際のプロファイルを使用するか確認
+        use_real_profile = self.config.get('use_real_chrome_profile', False)
+        
+        if use_real_profile:
+            # OS別の実際のChromeプロファイルディレクトリを取得
+            system = platform.system()
+            home = Path.home()
+            
+            if system == "Darwin":  # macOS
+                chrome_dir = home / "Library" / "Application Support" / "Google" / "Chrome"
+            elif system == "Windows":
+                chrome_dir = home / "AppData" / "Local" / "Google" / "Chrome" / "User Data"
+            elif system == "Linux":
+                chrome_dir = home / ".config" / "google-chrome"
+            else:
+                logger.warning(f"未対応のOS: {system}、一時プロファイルを使用します")
+                import tempfile
+                return tempfile.mkdtemp(prefix="playwright_chrome_")
+            
+            if chrome_dir.exists():
+                logger.info(f"実際のChromeプロファイルを使用: {chrome_dir}")
+                return str(chrome_dir)
+            else:
+                logger.warning(f"Chromeプロファイルが見つかりません: {chrome_dir}")
+        
         # テスト用や競合回避のため、一時的なプロファイルディレクトリを使用
         import tempfile
         temp_dir = tempfile.mkdtemp(prefix="playwright_chrome_")
@@ -60,10 +85,19 @@ class BrowserManager:
             # ブラウザオプションの設定
             browser_options = self._get_browser_options()
             
-            # Chromiumブラウザを起動
-            self.browser = await self.playwright.chromium.launch_persistent_context(
-                user_data_dir=self.user_data_dir,
-                **browser_options
+            # 通常のブラウザ起動（永続的コンテキストがSIGTRAPエラーを起こすため）
+            self.browser = await self.playwright.chromium.launch(
+                headless=browser_options.get('headless', False),
+                slow_mo=browser_options.get('slow_mo', 100),
+                args=browser_options.get('args', [])
+            )
+            
+            # ブラウザコンテキストを作成
+            self.context = await self.browser.new_context(
+                viewport=browser_options.get('viewport'),
+                locale=browser_options.get('locale'),
+                timezone_id=browser_options.get('timezone_id'),
+                user_agent=None  # デフォルトを使用
             )
             
             logger.info("ブラウザを起動しました")
@@ -89,10 +123,9 @@ class BrowserManager:
             "timezone_id": "Asia/Tokyo",
             "args": [
                 "--disable-blink-features=AutomationControlled",
-                "--disable-web-security",
-                "--disable-features=VizDisplayCompositor",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
+                "--disable-features=site-per-process",
+                "--disable-features=IsolateOrigins",
+                "--disable-site-isolation-trials"
             ]
         }
 
@@ -103,10 +136,10 @@ class BrowserManager:
         Returns:
             Page: Playwrightページインスタンス
         """
-        if not self.browser:
+        if not self.browser or not self.context:
             await self.launch_browser()
             
-        page = await self.browser.new_page()
+        page = await self.context.new_page()
         
         # ページの基本設定
         await self._setup_page(page)
@@ -198,6 +231,10 @@ class BrowserManager:
     async def close_browser(self):
         """ブラウザを終了"""
         try:
+            if self.context:
+                await self.context.close()
+                logger.info("ブラウザコンテキストを終了しました")
+                
             if self.browser:
                 await self.browser.close()
                 logger.info("ブラウザを終了しました")

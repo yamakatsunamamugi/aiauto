@@ -496,9 +496,72 @@ class AutomationController:
         Args:
             task: 更新対象タスク
         """
-        # TODO: 担当者Bのスプレッドシート連携モジュールと統合
-        # この部分は他のモジュールとの連携が必要
-        logger.debug(f"スプレッドシート更新: 行{task.row_number}")
+        try:
+            if not self.data_handler:
+                logger.error("DataHandlerが初期化されていません")
+                return
+            
+            # TaskStatusをインポート
+            from src.sheets.models import TaskStatus
+            
+            # ステータスの変換
+            status_map = {
+                "処理済み": TaskStatus.COMPLETED,
+                "エラー": TaskStatus.ERROR,
+                "未処理": TaskStatus.PENDING,
+                "処理中": TaskStatus.PROCESSING
+            }
+            
+            task_status = status_map.get(task.status, TaskStatus.PENDING)
+            
+            # スプレッドシート更新のための情報を準備
+            updates = []
+            
+            # 処理列の更新
+            if task.process_column > 0:
+                updates.append({
+                    'row': task.row_number,
+                    'col': task.process_column,
+                    'value': task_status.value
+                })
+            
+            # 結果列の更新（成功時）
+            if task_status == TaskStatus.COMPLETED and task.result and task.result_column > 0:
+                updates.append({
+                    'row': task.row_number,
+                    'col': task.result_column,
+                    'value': task.result
+                })
+                # エラー列をクリア
+                if task.error_column > 0:
+                    updates.append({
+                        'row': task.row_number,
+                        'col': task.error_column,
+                        'value': ''
+                    })
+            
+            # エラー列の更新（エラー時）
+            elif task_status == TaskStatus.ERROR and task.error_message and task.error_column > 0:
+                updates.append({
+                    'row': task.row_number,
+                    'col': task.error_column,
+                    'value': f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {task.error_message}"
+                })
+            
+            # スプレッドシートに一括更新
+            if updates and self.data_handler.sheets_client:
+                await asyncio.to_thread(
+                    self.data_handler.sheets_client.batch_update_cells,
+                    self.data_handler.current_sheet_config.spreadsheet_id,
+                    self.data_handler.current_sheet_config.sheet_name,
+                    updates
+                )
+                
+                logger.info(f"行{task.row_number}のスプレッドシート更新完了: {task.status}")
+            
+        except Exception as e:
+            logger.error(f"スプレッドシート更新エラー（行{task.row_number}）: {e}")
+            # エラーが発生してもタスク処理は継続
 
     def _update_progress(self, current: int, total: int, message: str):
         """
