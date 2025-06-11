@@ -14,6 +14,7 @@ from datetime import datetime
 
 from src.automation.automation_controller import AutomationController
 from src.sheets.models import AIService, ColumnAIConfig
+from src.sheets.data_handler import DataHandler
 from src.utils.logger import logger
 
 
@@ -25,6 +26,11 @@ class MainWindow:
         self.automation_controller = None
         self.automation_thread = None
         self.is_running = False
+        
+        # Sheets統合
+        self.data_handler = DataHandler()
+        self.current_sheet_structure = None
+        self.available_sheets = []
         
         # GUI状態管理
         self.status_text = tk.StringVar(value="待機中")
@@ -52,17 +58,20 @@ class MainWindow:
         # === スプレッドシート設定セクション ===
         self.create_spreadsheet_section(main_frame, 0)
         
+        # === データプレビューセクション ===
+        self.create_data_preview_section(main_frame, 1)
+        
         # === AI設定セクション ===
-        self.create_ai_section(main_frame, 1)
+        self.create_ai_section(main_frame, 2)
         
         # === 制御セクション ===
-        self.create_control_section(main_frame, 2)
+        self.create_control_section(main_frame, 3)
         
         # === ログセクション ===
-        self.create_log_section(main_frame, 3)
+        self.create_log_section(main_frame, 4)
         
         # === ステータスバー ===
-        self.create_status_bar(main_frame, 4)
+        self.create_status_bar(main_frame, 5)
         
     def create_spreadsheet_section(self, parent, row):
         """スプレッドシート設定セクション"""
@@ -82,6 +91,7 @@ class MainWindow:
         self.sheet_name_var = tk.StringVar()
         self.sheet_name_combo = ttk.Combobox(frame, textvariable=self.sheet_name_var, state="readonly")
         self.sheet_name_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        self.sheet_name_combo.bind("<<ComboboxSelected>>", self.on_sheet_selected)
         
         # シート情報読込ボタン
         self.load_sheet_btn = ttk.Button(frame, text="📋 シート情報読込", command=self.load_sheet_info)
@@ -231,6 +241,59 @@ class MainWindow:
         self.time_var.set(current_time)
         self.root.after(1000, self.update_time)
         
+    def create_data_preview_section(self, parent, row):
+        """データプレビューセクション"""
+        # フレーム
+        frame = ttk.LabelFrame(parent, text="📋 データプレビュー", padding="5")
+        frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+        
+        # 情報表示
+        info_frame = ttk.Frame(frame)
+        info_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5)
+        info_frame.columnconfigure(1, weight=1)
+        
+        # シート構造情報
+        ttk.Label(info_frame, text="作業ヘッダー行:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        self.header_row_var = tk.StringVar(value="未検出")
+        ttk.Label(info_frame, textvariable=self.header_row_var).grid(row=0, column=1, sticky=tk.W, padx=5)
+        
+        ttk.Label(info_frame, text="コピー列数:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.copy_columns_var = tk.StringVar(value="0")
+        ttk.Label(info_frame, textvariable=self.copy_columns_var).grid(row=0, column=3, sticky=tk.W, padx=5)
+        
+        ttk.Label(info_frame, text="処理対象行数:").grid(row=0, column=4, sticky=tk.W, padx=5)
+        self.task_rows_var = tk.StringVar(value="0")
+        ttk.Label(info_frame, textvariable=self.task_rows_var).grid(row=0, column=5, sticky=tk.W, padx=5)
+        
+        # プレビューテーブル
+        columns = ("行", "コピー列", "コピーテキスト", "AI設定", "状態")
+        self.preview_tree = ttk.Treeview(frame, columns=columns, show="headings", height=8)
+        
+        # 列設定
+        self.preview_tree.heading("行", text="行")
+        self.preview_tree.heading("コピー列", text="コピー列")
+        self.preview_tree.heading("コピーテキスト", text="コピーテキスト")
+        self.preview_tree.heading("AI設定", text="AI設定")
+        self.preview_tree.heading("状態", text="状態")
+        
+        self.preview_tree.column("行", width=50)
+        self.preview_tree.column("コピー列", width=80)
+        self.preview_tree.column("コピーテキスト", width=300)
+        self.preview_tree.column("AI設定", width=120)
+        self.preview_tree.column("状態", width=80)
+        
+        # スクロールバー
+        preview_scroll = ttk.Scrollbar(frame, orient="vertical", command=self.preview_tree.yview)
+        self.preview_tree.configure(yscrollcommand=preview_scroll.set)
+        
+        self.preview_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        preview_scroll.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        
+        # メインフレームの行の重みを設定
+        parent.rowconfigure(row, weight=1)
+        
     def load_sheet_info(self):
         """シート情報読込"""
         url = self.sheet_url_var.get().strip()
@@ -238,11 +301,129 @@ class MainWindow:
             messagebox.showwarning("警告", "スプレッドシートURLを入力してください")
             return
             
-        self.add_log_entry("🔄 シート情報を読み込み中...")
-        # TODO: 実際のシート情報読込処理
-        self.sheet_name_combo['values'] = ["Sheet1", "データ", "テスト"]
-        self.sheet_name_var.set("Sheet1")
-        self.add_log_entry("✅ シート情報読み込み完了")
+        def load_async():
+            try:
+                self.root.after(0, lambda: self.add_log_entry("🔄 Google Sheets API認証中..."))
+                
+                # 認証
+                auth_success = self.data_handler.authenticate()
+                if not auth_success:
+                    self.root.after(0, lambda: self.add_log_entry("❌ Google Sheets API認証に失敗しました"))
+                    self.root.after(0, lambda: messagebox.showerror("エラー", "Google Sheets API認証に失敗しました\\n\\nconfig/credentials.json を確認してください"))
+                    return
+                
+                self.root.after(0, lambda: self.add_log_entry("✅ Google Sheets API認証成功"))
+                self.root.after(0, lambda: self.add_log_entry("🔄 シート一覧を取得中..."))
+                
+                # シート一覧取得
+                sheets = self.data_handler.get_available_sheets(url)
+                if not sheets:
+                    self.root.after(0, lambda: self.add_log_entry("❌ シート一覧の取得に失敗しました"))
+                    self.root.after(0, lambda: messagebox.showerror("エラー", "シート一覧の取得に失敗しました\\n\\nURLとアクセス権限を確認してください"))
+                    return
+                
+                # UI更新
+                sheet_names = [sheet['title'] for sheet in sheets]
+                self.available_sheets = sheets
+                
+                self.root.after(0, lambda: self._update_sheet_combo(sheet_names))
+                self.root.after(0, lambda: self.add_log_entry(f"✅ シート一覧取得完了: {len(sheets)}個のシート"))
+                
+                # 最初のシートを自動選択して解析
+                if sheets:
+                    first_sheet = sheets[0]['title']
+                    self.root.after(0, lambda: self.sheet_name_var.set(first_sheet))
+                    self.root.after(0, lambda: self.analyze_selected_sheet())
+                    
+            except Exception as e:
+                error_msg = f"シート情報読込エラー: {e}"
+                self.root.after(0, lambda: self.add_log_entry(f"❌ {error_msg}"))
+                self.root.after(0, lambda: messagebox.showerror("エラー", error_msg))
+        
+        # 非同期実行
+        threading.Thread(target=load_async, daemon=True).start()
+        
+    def _update_sheet_combo(self, sheet_names):
+        """シートコンボボックス更新"""
+        self.sheet_name_combo['values'] = sheet_names
+        self.sheet_name_combo['state'] = 'readonly'
+        
+    def analyze_selected_sheet(self):
+        """選択されたシートを解析"""
+        url = self.sheet_url_var.get().strip()
+        sheet_name = self.sheet_name_var.get()
+        
+        if not url or not sheet_name:
+            return
+            
+        def analyze_async():
+            try:
+                self.root.after(0, lambda: self.add_log_entry(f"🔍 シート解析中: {sheet_name}"))
+                
+                # シート構造解析
+                structure = self.data_handler.load_sheet_from_url(url, sheet_name)
+                if not structure:
+                    self.root.after(0, lambda: self.add_log_entry("❌ シート構造の解析に失敗しました"))
+                    return
+                
+                self.current_sheet_structure = structure
+                
+                # タスク行作成
+                task_rows = self.data_handler.create_task_rows(structure)
+                
+                # UI更新
+                self.root.after(0, lambda: self._update_preview_display(structure, task_rows))
+                self.root.after(0, lambda: self.add_log_entry(f"✅ シート解析完了: {len(task_rows)}件のタスク"))
+                
+            except Exception as e:
+                error_msg = f"シート解析エラー: {e}"
+                self.root.after(0, lambda: self.add_log_entry(f"❌ {error_msg}"))
+        
+        threading.Thread(target=analyze_async, daemon=True).start()
+        
+    def _update_preview_display(self, structure, task_rows):
+        """プレビュー表示更新"""
+        # 構造情報更新
+        self.header_row_var.set(f"{structure.work_header_row}行目")
+        self.copy_columns_var.set(str(len(structure.copy_columns)))
+        self.task_rows_var.set(str(len(task_rows)))
+        
+        # プレビューテーブルクリア
+        for item in self.preview_tree.get_children():
+            self.preview_tree.delete(item)
+        
+        # タスク行をプレビューに追加
+        for i, task in enumerate(task_rows[:20]):  # 最大20件表示
+            copy_col_letter = self._number_to_column_letter(task.column_positions.copy_column + 1)
+            copy_text = task.copy_text[:50] + "..." if len(task.copy_text) > 50 else task.copy_text
+            ai_setting = f"{task.ai_config.ai_service.value}/{task.ai_config.ai_model}"
+            
+            self.preview_tree.insert("", "end", values=(
+                task.row_number,
+                copy_col_letter,
+                copy_text,
+                ai_setting,
+                task.status
+            ))
+        
+        # 20件以上ある場合は省略表示
+        if len(task_rows) > 20:
+            self.preview_tree.insert("", "end", values=(
+                "...", "...", f"他 {len(task_rows) - 20} 件", "...", "..."
+            ))
+            
+    def _number_to_column_letter(self, num: int) -> str:
+        """列番号をA1形式の文字に変換"""
+        result = ""
+        while num > 0:
+            num -= 1
+            result = chr(65 + (num % 26)) + result
+            num //= 26
+        return result
+        
+    def on_sheet_selected(self, event=None):
+        """シート選択時の処理"""
+        self.analyze_selected_sheet()
         
     def on_ai_service_changed(self, event=None):
         """AIサービス変更時の処理"""
@@ -329,6 +510,10 @@ class MainWindow:
             messagebox.showwarning("警告", "シート名を選択してください")
             return
             
+        if not self.current_sheet_structure:
+            messagebox.showwarning("警告", "シート情報を読み込んでください")
+            return
+            
         # UI状態更新
         self.is_running = True
         self.start_btn.configure(state="disabled")
@@ -344,32 +529,83 @@ class MainWindow:
     def run_automation(self):
         """自動化実行（別スレッド）"""
         try:
-            # TODO: 実際の自動化処理
-            import time
-            for i in range(101):
+            # タスク行を取得
+            task_rows = self.data_handler.create_task_rows(self.current_sheet_structure)
+            total_tasks = len(task_rows)
+            
+            if total_tasks == 0:
+                self.add_log_entry("⚠️ 処理対象のタスクがありません")
+                return
+            
+            self.add_log_entry(f"📋 処理対象タスク: {total_tasks}件")
+            
+            # AutomationControllerの初期化
+            if not self.automation_controller:
+                self.automation_controller = AutomationController()
+                
+            # 各タスクを処理
+            for i, task_row in enumerate(task_rows):
                 if not self.is_running:
                     break
                     
-                # 進捗更新
-                self.root.after(0, lambda: self.progress_var.set(i))
-                
-                # ログ出力
-                if i % 20 == 0:
-                    self.add_log_entry(f"📊 処理進捗: {i}%")
+                try:
+                    # 進捗更新
+                    progress = (i / total_tasks) * 100
+                    self.root.after(0, lambda p=progress: self.progress_var.set(p))
                     
-                time.sleep(0.1)
-                
+                    self.add_log_entry(f"🔄 タスク{i+1}/{total_tasks}: 行{task_row.row_number}")
+                    self.add_log_entry(f"📝 コピーテキスト: {task_row.copy_text[:100]}...")
+                    
+                    # AI処理（デモ版）
+                    import time
+                    time.sleep(1)  # 処理時間のシミュレーション
+                    
+                    # デモ結果
+                    demo_result = f"AI処理結果: {task_row.copy_text[:50]}... への応答"
+                    
+                    # 結果をシートに書き戻し
+                    success = self.data_handler.update_task_result(task_row, demo_result)
+                    
+                    if success:
+                        self.add_log_entry(f"✅ タスク{i+1}完了: 結果をシートに書き戻しました")
+                        
+                        # プレビュー表示を更新
+                        self.root.after(0, lambda: self._refresh_preview_after_update(task_row.row_number, "処理済み"))
+                    else:
+                        self.add_log_entry(f"❌ タスク{i+1}エラー: シート書き戻しに失敗")
+                        
+                except Exception as task_error:
+                    self.add_log_entry(f"❌ タスク{i+1}エラー: {task_error}")
+                    
+            # 最終進捗更新
+            self.root.after(0, lambda: self.progress_var.set(100))
+            
             if self.is_running:
-                self.add_log_entry("✅ 自動化処理が完了しました")
+                self.add_log_entry("🎉 全ての自動化処理が完了しました！")
             else:
                 self.add_log_entry("⏹️ 自動化処理が停止されました")
                 
         except Exception as e:
-            self.add_log_entry(f"❌ 自動化エラー: {e}")
+            self.add_log_entry(f"❌ 自動化実行エラー: {e}")
             
         finally:
             # UI状態リセット
             self.root.after(0, self.reset_ui_state)
+            
+    def _refresh_preview_after_update(self, row_number, new_status):
+        """プレビュー表示を部分更新"""
+        try:
+            # プレビューテーブルの該当行を更新
+            for item in self.preview_tree.get_children():
+                values = self.preview_tree.item(item, 'values')
+                if values and str(values[0]) == str(row_number):
+                    # 状態列を更新
+                    new_values = list(values)
+                    new_values[4] = new_status  # 状態列
+                    self.preview_tree.item(item, values=new_values)
+                    break
+        except Exception as e:
+            logger.warning(f"プレビュー更新エラー: {e}")
             
     def stop_automation(self):
         """自動化停止"""
