@@ -1,0 +1,47 @@
+{
+  "spreadsheet_url": "",
+  "sheet_name": "",
+  "ai_configs": {
+    "chatgpt": {
+      "url": "https://chat.openai.com",
+      "model": "gpt-4",
+      "settings": {
+        "temperature": 0.7,
+        "enable_deep_think": true
+      }
+    },
+    "claude": {
+      "url": "https://claude.ai",
+      "model": "claude-3-sonnet",
+      "settings": {
+        "enable_analysis": true
+      }
+    },
+    "gemini": {
+      "url": "https://gemini.google.com",
+      "model": "gemini-pro",
+      "settings": {}
+    },
+    "genspark": {
+      "url": "https://genspark.ai",
+      "model": "default",
+      "settings": {}
+    },
+    "google_ai_studio": {
+      "url": "https://aistudio.google.com",
+      "model": "gemini-pro",
+      "settings": {}
+    }
+  },
+  "automation": {
+    "retry_count": 5,
+    "retry_delay": 10,
+    "browser": "chrome",
+    "headless": false,
+    "timeout": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/app.log"
+  }
+}
