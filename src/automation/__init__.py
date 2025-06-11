@@ -1,23 +1,18 @@
 """
-Automation module for AI platform interactions.
+ブラウザ自動化モジュール
 
-This module provides automation capabilities for various AI platforms
-including ChatGPT, Claude, Gemini, and others.
+Playwrightを使用した複数AIサービスの自動操作システム
+手動ログイン前提でCloudflare対策を考慮した安全な自動化を提供
 """
 
-from .base_handler import BaseAIHandler
 from .browser_manager import BrowserManager
-from .chatgpt_handler import ChatGPTHandler
-from .retry_manager import RetryManager, retry_on_failure
-from .automation_controller import AutomationController, ProcessingStatus, ProcessingTask
+from .automation_controller import AutomationController
+from .retry_manager import RetryManager
+from .session_manager import SessionManager
 
 __all__ = [
-    'BaseAIHandler',
-    'BrowserManager', 
-    'ChatGPTHandler',
+    'BrowserManager',
+    'AutomationController', 
     'RetryManager',
-    'retry_on_failure',
-    'AutomationController',
-    'ProcessingStatus',
-    'ProcessingTask'
+    'SessionManager'
 ]

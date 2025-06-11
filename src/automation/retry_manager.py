@@ -1,323 +1,329 @@
 """
-Retry manager for handling errors and retries in AI automation.
+リトライ管理モジュール
 
-This module provides robust error handling and retry logic for AI operations,
-including exponential backoff and detailed error logging.
+エラーハンドリング・リトライ機能の実装
+指数バックオフとサーキットブレーカーパターンを使用
 """
 
-import time
-import logging
+import asyncio
+import random
+from datetime import datetime, timedelta
 from typing import Callable, Any, Optional, Dict, List
-from functools import wraps
 from enum import Enum
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+
+from src.utils.logger import logger
+from src.automation.ai_handlers.base_handler import SessionExpiredError, AIServiceError
 
 
-class RetryReason(Enum):
-    """Enumeration of retry reasons."""
-    NETWORK_ERROR = "network_error"
-    TIMEOUT = "timeout"
+class ErrorType(Enum):
+    """エラー種別"""
+    NETWORK = "network"
+    TIMEOUT = "timeout" 
+    SESSION_EXPIRED = "session_expired"
     ELEMENT_NOT_FOUND = "element_not_found"
-    PERMISSION_DENIED = "permission_denied"
-    RATE_LIMITED = "rate_limited"
-    PLATFORM_ERROR = "platform_error"
-    UNKNOWN_ERROR = "unknown_error"
+    AI_SERVICE = "ai_service"
+    UNKNOWN = "unknown"
+
+
+class CircuitState(Enum):
+    """サーキットブレーカー状態"""
+    CLOSED = "closed"      # 正常状態
+    OPEN = "open"          # 開放状態（エラー多発）
+    HALF_OPEN = "half_open"  # 半開状態（テスト中）
 
 
 class RetryManager:
-    """
-    Manager for handling retries and error recovery in AI automation.
+    """エラーハンドリング・リトライ管理クラス"""
     
-    This class provides sophisticated retry logic with exponential backoff,
-    error categorization, and detailed logging.
-    """
-    
-    def __init__(self, logger: logging.Logger, max_retries: int = 5):
+    def __init__(self, 
+                 max_retries: int = 5,
+                 base_delay: float = 1.0,
+                 max_delay: float = 60.0,
+                 backoff_multiplier: float = 2.0):
         """
-        Initialize the retry manager.
+        リトライ管理の初期化
         
         Args:
-            logger: Logger instance for logging operations
-            max_retries: Maximum number of retries per operation
+            max_retries: 最大リトライ回数
+            base_delay: 基本遅延時間（秒）
+            max_delay: 最大遅延時間（秒）
+            backoff_multiplier: バックオフ倍率
         """
-        self.logger = logger
         self.max_retries = max_retries
-        self.retry_history: List[Dict[str, Any]] = []
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.backoff_multiplier = backoff_multiplier
         
-        # Retry delays for different error types (in seconds)
-        self.retry_delays = {
-            RetryReason.NETWORK_ERROR: [2, 5, 10, 20, 40],
-            RetryReason.TIMEOUT: [5, 10, 15, 30, 60],
-            RetryReason.ELEMENT_NOT_FOUND: [1, 2, 4, 8, 16],
-            RetryReason.PERMISSION_DENIED: [0, 0, 0, 0, 0],  # No point in retrying
-            RetryReason.RATE_LIMITED: [10, 30, 60, 120, 300],
-            RetryReason.PLATFORM_ERROR: [3, 6, 12, 24, 48],
-            RetryReason.UNKNOWN_ERROR: [2, 4, 8, 16, 32]
-        }
-    
-    def categorize_error(self, error: Exception) -> RetryReason:
+        # サーキットブレーカー設定
+        self.circuit_states: Dict[str, CircuitState] = {}
+        self.failure_counts: Dict[str, int] = {}
+        self.last_failure_times: Dict[str, datetime] = {}
+        self.failure_threshold = 3  # 連続失敗しきい値
+        self.recovery_timeout = 300  # 回復タイムアウト（秒）
+        
+        logger.info("RetryManagerを初期化しました")
+
+    async def retry_with_backoff(self, 
+                                func: Callable,
+                                service_name: str,
+                                *args, 
+                                **kwargs) -> Any:
         """
-        Categorize an error to determine retry strategy.
+        指数バックオフによるリトライ実行
         
         Args:
-            error: The exception that occurred
+            func: 実行する関数
+            service_name: サービス名（サーキットブレーカー用）
+            *args: 関数の引数
+            **kwargs: 関数のキーワード引数
             
         Returns:
-            RetryReason: The category of the error
-        """
-        error_str = str(error).lower()
-        error_type = type(error).__name__.lower()
-        
-        # Network-related errors
-        if any(keyword in error_str for keyword in [
-            'connection', 'network', 'dns', 'socket', 'ssl', 'certificate'
-        ]):
-            return RetryReason.NETWORK_ERROR
-        
-        # Timeout errors
-        if any(keyword in error_str for keyword in [
-            'timeout', 'timed out', 'time out'
-        ]):
-            return RetryReason.TIMEOUT
-        
-        # Element not found errors (Selenium)
-        if any(keyword in error_str for keyword in [
-            'no such element', 'element not found', 'unable to locate'
-        ]):
-            return RetryReason.ELEMENT_NOT_FOUND
-        
-        # Permission errors
-        if any(keyword in error_str for keyword in [
-            'permission denied', 'unauthorized', 'forbidden', 'access denied'
-        ]):
-            return RetryReason.PERMISSION_DENIED
-        
-        # Rate limiting errors
-        if any(keyword in error_str for keyword in [
-            'rate limit', 'too many requests', 'quota exceeded'
-        ]):
-            return RetryReason.RATE_LIMITED
-        
-        # Platform-specific errors
-        if any(keyword in error_str for keyword in [
-            'openai', 'chatgpt', 'claude', 'gemini', 'ai error'
-        ]):
-            return RetryReason.PLATFORM_ERROR
-        
-        return RetryReason.UNKNOWN_ERROR
-    
-    def should_retry(self, error: Exception, attempt: int) -> bool:
-        """
-        Determine if an operation should be retried.
-        
-        Args:
-            error: The exception that occurred
-            attempt: Current attempt number (0-based)
+            Any: 関数の実行結果
             
-        Returns:
-            bool: True if should retry, False otherwise
+        Raises:
+            Exception: 最大リトライ回数到達時
         """
-        if attempt >= self.max_retries:
-            return False
+        # サーキットブレーカーチェック
+        if not self._is_circuit_closed(service_name):
+            raise AIServiceError(f"{service_name}: サーキットブレーカーが開いています")
         
-        reason = self.categorize_error(error)
+        last_exception = None
         
-        # Some errors should not be retried
-        if reason == RetryReason.PERMISSION_DENIED:
-            return False
-        
-        return True
-    
-    def get_retry_delay(self, error: Exception, attempt: int) -> float:
-        """
-        Get the delay before retrying an operation.
-        
-        Args:
-            error: The exception that occurred
-            attempt: Current attempt number (0-based)
-            
-        Returns:
-            float: Delay in seconds
-        """
-        reason = self.categorize_error(error)
-        delays = self.retry_delays.get(reason, self.retry_delays[RetryReason.UNKNOWN_ERROR])
-        
-        if attempt < len(delays):
-            return delays[attempt]
-        else:
-            # For attempts beyond our predefined delays, use exponential backoff
-            return min(delays[-1] * (2 ** (attempt - len(delays) + 1)), 300)  # Max 5 minutes
-    
-    def execute_with_retry(
-        self,
-        operation: Callable[[], Any],
-        operation_name: str,
-        context: Optional[Dict[str, Any]] = None
-    ) -> tuple[bool, Any, Optional[str]]:
-        """
-        Execute an operation with retry logic.
-        
-        Args:
-            operation: The operation to execute
-            operation_name: Name of the operation for logging
-            context: Additional context information
-            
-        Returns:
-            Tuple of (success, result, error_message)
-        """
-        attempt = 0
-        last_error = None
-        error_messages = []
-        
-        while attempt <= self.max_retries:
+        for attempt in range(self.max_retries + 1):
             try:
-                self.logger.info(f"Executing {operation_name} (attempt {attempt + 1}/{self.max_retries + 1})")
+                # 関数実行
+                result = await func(*args, **kwargs)
                 
-                result = operation()
+                # 成功時はサーキットブレーカーをリセット
+                self._record_success(service_name)
                 
                 if attempt > 0:
-                    self.logger.info(f"{operation_name} succeeded after {attempt + 1} attempts")
+                    logger.info(f"{service_name}: リトライ{attempt}回目で成功しました")
                 
-                # Log successful retry
-                self.retry_history.append({
-                    "operation": operation_name,
-                    "context": context,
-                    "attempts": attempt + 1,
-                    "success": True,
-                    "timestamp": time.time()
-                })
+                return result
                 
-                return True, result, None
+            except Exception as e:
+                last_exception = e
+                error_type = self._classify_error(e)
                 
-            except Exception as error:
-                last_error = error
-                error_msg = f"Attempt {attempt + 1} failed: {str(error)}"
-                error_messages.append(error_msg)
-                self.logger.warning(error_msg)
+                # セッション切れは即座に失敗
+                if error_type == ErrorType.SESSION_EXPIRED:
+                    logger.error(f"{service_name}: セッション切れのためリトライを中断")
+                    raise e
                 
-                if not self.should_retry(error, attempt):
+                # 最大リトライ回数チェック
+                if attempt >= self.max_retries:
+                    self._record_failure(service_name)
+                    logger.error(f"{service_name}: 最大リトライ回数({self.max_retries})に到達")
                     break
                 
-                # Calculate and wait for retry delay
-                delay = self.get_retry_delay(error, attempt)
-                if delay > 0:
-                    self.logger.info(f"Waiting {delay} seconds before retry...")
-                    time.sleep(delay)
+                # リトライ可能かチェック
+                if not self._should_retry(error_type):
+                    logger.error(f"{service_name}: リトライ不可能なエラー: {error_type.value}")
+                    break
                 
-                attempt += 1
+                # リトライログ
+                await self._log_retry_attempt(service_name, attempt + 1, e)
+                
+                # バックオフ待機
+                delay = self._calculate_delay(attempt)
+                await asyncio.sleep(delay)
         
-        # All retries exhausted
-        final_error_msg = f"{operation_name} failed after {attempt + 1} attempts. Errors: {'; '.join(error_messages)}"
-        self.logger.error(final_error_msg)
-        
-        # Log failed retry
-        self.retry_history.append({
-            "operation": operation_name,
-            "context": context,
-            "attempts": attempt + 1,
-            "success": False,
-            "error": str(last_error),
-            "error_type": self.categorize_error(last_error).value,
-            "timestamp": time.time()
-        })
-        
-        return False, None, final_error_msg
-    
-    def get_retry_statistics(self) -> Dict[str, Any]:
+        # 全リトライ失敗
+        self._record_failure(service_name)
+        logger.error(f"{service_name}: 全てのリトライが失敗しました")
+        raise last_exception
+
+    def _classify_error(self, error: Exception) -> ErrorType:
         """
-        Get statistics about retry operations.
+        エラーを分類
+        
+        Args:
+            error: 発生したエラー
+            
+        Returns:
+            ErrorType: エラー種別
+        """
+        if isinstance(error, SessionExpiredError):
+            return ErrorType.SESSION_EXPIRED
+        elif isinstance(error, PlaywrightTimeoutError):
+            return ErrorType.TIMEOUT
+        elif isinstance(error, AIServiceError):
+            return ErrorType.AI_SERVICE
+        elif "network" in str(error).lower() or "connection" in str(error).lower():
+            return ErrorType.NETWORK
+        elif "not found" in str(error).lower() or "element" in str(error).lower():
+            return ErrorType.ELEMENT_NOT_FOUND
+        else:
+            return ErrorType.UNKNOWN
+
+    def _should_retry(self, error_type: ErrorType) -> bool:
+        """
+        リトライすべきかどうか判定
+        
+        Args:
+            error_type: エラー種別
+            
+        Returns:
+            bool: リトライするかどうか
+        """
+        retryable_errors = {
+            ErrorType.NETWORK,
+            ErrorType.TIMEOUT,
+            ErrorType.ELEMENT_NOT_FOUND,
+            ErrorType.UNKNOWN
+        }
+        return error_type in retryable_errors
+
+    def _calculate_delay(self, attempt: int) -> float:
+        """
+        バックオフ遅延時間を計算
+        
+        Args:
+            attempt: 試行回数（0から開始）
+            
+        Returns:
+            float: 遅延時間（秒）
+        """
+        # 指数バックオフ + ジッター
+        delay = self.base_delay * (self.backoff_multiplier ** attempt)
+        delay = min(delay, self.max_delay)
+        
+        # ランダムジッター（±20%）
+        jitter = delay * 0.2 * (random.random() - 0.5)
+        delay += jitter
+        
+        return max(delay, 0.1)  # 最小0.1秒
+
+    async def _log_retry_attempt(self, service_name: str, attempt: int, error: Exception):
+        """
+        リトライ試行ログの出力
+        
+        Args:
+            service_name: サービス名
+            attempt: 試行回数
+            error: 発生したエラー
+        """
+        error_type = self._classify_error(error)
+        delay = self._calculate_delay(attempt - 1)
+        
+        logger.warning(f"{service_name}: リトライ{attempt}/{self.max_retries} "
+                      f"エラー種別: {error_type.value}, "
+                      f"次の試行まで {delay:.1f}秒待機, "
+                      f"エラー: {str(error)[:100]}")
+
+    async def take_error_screenshot(self, page: Page, service_name: str, error: str) -> str:
+        """
+        エラー時のスクリーンショット撮影
+        
+        Args:
+            page: Playwrightページ
+            service_name: サービス名
+            error: エラー内容
+            
+        Returns:
+            str: スクリーンショットファイルパス
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"error_{service_name}_{timestamp}.png"
+            filepath = f"logs/screenshots/{filename}"
+            
+            # ディレクトリ作成
+            import os
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            
+            await page.screenshot(path=filepath, full_page=True)
+            logger.info(f"エラー時スクリーンショット保存: {filepath}")
+            
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"スクリーンショット撮影に失敗: {e}")
+            return ""
+
+    def _is_circuit_closed(self, service_name: str) -> bool:
+        """
+        サーキットブレーカーが閉じているかチェック
+        
+        Args:
+            service_name: サービス名
+            
+        Returns:
+            bool: サーキットが閉じているかどうか
+        """
+        state = self.circuit_states.get(service_name, CircuitState.CLOSED)
+        
+        if state == CircuitState.CLOSED:
+            return True
+        elif state == CircuitState.OPEN:
+            # 回復タイムアウトチェック
+            last_failure = self.last_failure_times.get(service_name)
+            if last_failure and datetime.now() - last_failure > timedelta(seconds=self.recovery_timeout):
+                # 半開状態に移行
+                self.circuit_states[service_name] = CircuitState.HALF_OPEN
+                logger.info(f"{service_name}: サーキットブレーカーを半開状態に移行")
+                return True
+            return False
+        elif state == CircuitState.HALF_OPEN:
+            return True
+        
+        return False
+
+    def _record_success(self, service_name: str):
+        """
+        成功を記録（サーキットブレーカーリセット）
+        
+        Args:
+            service_name: サービス名
+        """
+        if service_name in self.circuit_states:
+            self.circuit_states[service_name] = CircuitState.CLOSED
+            self.failure_counts[service_name] = 0
+            logger.debug(f"{service_name}: サーキットブレーカーをリセット")
+
+    def _record_failure(self, service_name: str):
+        """
+        失敗を記録（サーキットブレーカー更新）
+        
+        Args:
+            service_name: サービス名
+        """
+        self.failure_counts[service_name] = self.failure_counts.get(service_name, 0) + 1
+        self.last_failure_times[service_name] = datetime.now()
+        
+        if self.failure_counts[service_name] >= self.failure_threshold:
+            self.circuit_states[service_name] = CircuitState.OPEN
+            logger.warning(f"{service_name}: サーキットブレーカーを開放状態に移行 "
+                          f"(連続失敗: {self.failure_counts[service_name]})")
+
+    def get_retry_stats(self) -> Dict[str, Dict[str, Any]]:
+        """
+        リトライ統計情報を取得
         
         Returns:
-            Dict[str, Any]: Statistics about retries
+            Dict[str, Dict[str, Any]]: サービス別統計情報
         """
-        if not self.retry_history:
-            return {"total_operations": 0}
+        stats = {}
+        for service_name in set(list(self.circuit_states.keys()) + list(self.failure_counts.keys())):
+            stats[service_name] = {
+                "circuit_state": self.circuit_states.get(service_name, CircuitState.CLOSED).value,
+                "failure_count": self.failure_counts.get(service_name, 0),
+                "last_failure": self.last_failure_times.get(service_name)
+            }
+        return stats
+
+    async def reset_circuit_breaker(self, service_name: str):
+        """
+        サーキットブレーカーを手動リセット
         
-        total_ops = len(self.retry_history)
-        successful_ops = sum(1 for op in self.retry_history if op["success"])
-        failed_ops = total_ops - successful_ops
+        Args:
+            service_name: サービス名
+        """
+        self.circuit_states[service_name] = CircuitState.CLOSED
+        self.failure_counts[service_name] = 0
+        if service_name in self.last_failure_times:
+            del self.last_failure_times[service_name]
         
-        total_attempts = sum(op["attempts"] for op in self.retry_history)
-        avg_attempts = total_attempts / total_ops if total_ops > 0 else 0
-        
-        # Error type distribution
-        error_types = {}
-        for op in self.retry_history:
-            if not op["success"] and "error_type" in op:
-                error_type = op["error_type"]
-                error_types[error_type] = error_types.get(error_type, 0) + 1
-        
-        return {
-            "total_operations": total_ops,
-            "successful_operations": successful_ops,
-            "failed_operations": failed_ops,
-            "success_rate": successful_ops / total_ops if total_ops > 0 else 0,
-            "total_attempts": total_attempts,
-            "average_attempts_per_operation": avg_attempts,
-            "error_type_distribution": error_types
-        }
-    
-    def clear_history(self):
-        """Clear retry history."""
-        self.retry_history.clear()
-        self.logger.info("Retry history cleared")
-
-
-def retry_on_failure(
-    max_retries: int = 5,
-    logger: Optional[logging.Logger] = None,
-    operation_name: Optional[str] = None
-):
-    """
-    Decorator for adding retry logic to functions.
-    
-    Args:
-        max_retries: Maximum number of retries
-        logger: Logger instance (optional)
-        operation_name: Name for logging (optional, uses function name)
-    
-    Returns:
-        Decorated function
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal logger, operation_name
-            
-            if logger is None:
-                logger = logging.getLogger(__name__)
-            
-            if operation_name is None:
-                operation_name = func.__name__
-            
-            retry_manager = RetryManager(logger, max_retries)
-            
-            def operation():
-                return func(*args, **kwargs)
-            
-            success, result, error_msg = retry_manager.execute_with_retry(
-                operation, operation_name
-            )
-            
-            if success:
-                return result
-            else:
-                raise Exception(error_msg)
-        
-        return wrapper
-    return decorator
-
-
-# Example usage decorators for common operations
-def retry_selenium_operation(max_retries: int = 3):
-    """Decorator for Selenium operations with appropriate retry settings."""
-    return retry_on_failure(max_retries=max_retries, operation_name="selenium_operation")
-
-
-def retry_ai_operation(max_retries: int = 5):
-    """Decorator for AI operations with appropriate retry settings."""
-    return retry_on_failure(max_retries=max_retries, operation_name="ai_operation")
-
-
-def retry_network_operation(max_retries: int = 3):
-    """Decorator for network operations with appropriate retry settings."""
-    return retry_on_failure(max_retries=max_retries, operation_name="network_operation")
+        logger.info(f"{service_name}: サーキットブレーカーを手動リセットしました")
