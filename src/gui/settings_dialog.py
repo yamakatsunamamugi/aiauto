@@ -201,7 +201,7 @@ class SettingsDialog(ValidationMixin, TooltipMixin):
                 tooltip_text=f"{display_name}のURLを入力してください"
             )
             url_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
-            url_entry.set(ai_config.get("url", ""))\n            
+            url_entry.set(ai_config.get("url", ""))
             # モデル設定
             model_entry = LabeledEntry(
                 ai_frame,

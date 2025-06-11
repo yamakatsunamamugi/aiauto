@@ -6,8 +6,11 @@ Google Sheetsからの処理タスクとAI操作に関連するデータ構造�
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from typing import ForwardRef
 
 
 class TaskStatus(Enum):
@@ -25,6 +28,7 @@ class AIService(Enum):
     GEMINI = "gemini"
     GENSPARK = "genspark"
     GOOGLE_AI_STUDIO = "google_ai_studio"
+    PERPLEXITY = "perplexity"
 
 
 @dataclass
@@ -47,6 +51,48 @@ class ColumnPosition:
 
 
 @dataclass
+class ColumnAIConfig:
+    """
+    列毎のAI設定情報
+    
+    個別の列に対して指定されるAIサービスとその設定
+    """
+    ai_service: AIService               # 使用するAIサービス
+    ai_model: str                       # 使用するAIモデル名
+    ai_mode: Optional[str] = None       # AIモード（creative、balanced、precise等）
+    ai_features: Optional[List[str]] = None  # 使用する機能のリスト
+    ai_settings: Optional[Dict[str, Any]] = None  # 追加設定
+    
+    def __post_init__(self):
+        """初期化後の処理"""
+        if self.ai_features is None:
+            self.ai_features = []
+        if self.ai_settings is None:
+            self.ai_settings = {}
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """辞書形式に変換"""
+        return {
+            "ai_service": self.ai_service.value,
+            "ai_model": self.ai_model,
+            "ai_mode": self.ai_mode,
+            "ai_features": self.ai_features,
+            "ai_settings": self.ai_settings
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ColumnAIConfig':
+        """辞書から作成"""
+        return cls(
+            ai_service=AIService(data["ai_service"]),
+            ai_model=data["ai_model"],
+            ai_mode=data.get("ai_mode"),
+            ai_features=data.get("ai_features", []),
+            ai_settings=data.get("ai_settings", {})
+        )
+
+
+@dataclass
 class TaskRow:
     """
     処理対象となる1行分のタスク情報
@@ -56,8 +102,7 @@ class TaskRow:
     # 基本情報
     row_number: int                    # スプレッドシートの行番号
     copy_text: str                     # コピー対象のテキスト
-    ai_service: AIService              # 使用するAIサービス
-    ai_model: str                      # 使用するAIモデル名
+    ai_config: ColumnAIConfig          # 使用するAI設定（新しい統合された設定）
     
     # 列位置情報
     column_positions: ColumnPosition   # 関連列の位置情報
@@ -71,6 +116,17 @@ class TaskRow:
     created_at: datetime = None              # タスク作成日時
     processed_at: Optional[datetime] = None  # 処理完了日時
     retry_count: int = 0                     # リトライ回数
+    
+    # 後方互換性のためのプロパティ
+    @property
+    def ai_service(self) -> AIService:
+        """後方互換性のためのai_service プロパティ"""
+        return self.ai_config.ai_service
+    
+    @property 
+    def ai_model(self) -> str:
+        """後方互換性のためのai_model プロパティ"""
+        return self.ai_config.ai_model
     
     def __post_init__(self):
         """初期化後の処理"""
@@ -99,6 +155,63 @@ class TaskRow:
         self.retry_count += 1
 
 
+@dataclass 
+class ColumnMapping:
+    """
+    列の位置とAI設定のマッピング情報
+    
+    スプレッドシートの列番号とその列で使用するAI設定の組み合わせ
+    """
+    column_letter: str                  # 列記号（A, B, C...）
+    column_number: int                  # 列番号（1, 2, 3...）
+    column_positions: ColumnPosition    # 関連列の位置情報
+    ai_config: ColumnAIConfig          # この列で使用するAI設定
+    is_active: bool = True             # この列が処理対象かどうか
+    
+    def __post_init__(self):
+        """初期化後の検証"""
+        # 列番号と列記号の整合性チェック
+        expected_letter = self._number_to_letter(self.column_number)
+        if self.column_letter.upper() != expected_letter:
+            raise ValueError(f"列番号 {self.column_number} に対応する列記号は {expected_letter} ですが、{self.column_letter} が指定されました")
+    
+    @staticmethod
+    def _number_to_letter(column_number: int) -> str:
+        """列番号を列記号に変換（A=1, B=2, ...）"""
+        result = ""
+        while column_number > 0:
+            column_number -= 1
+            result = chr(column_number % 26 + ord('A')) + result
+            column_number //= 26
+        return result
+    
+    @staticmethod
+    def _letter_to_number(column_letter: str) -> int:
+        """列記号を列番号に変換（A=1, B=2, ...）"""
+        result = 0
+        for char in column_letter.upper():
+            result = result * 26 + (ord(char) - ord('A') + 1)
+        return result
+    
+    @classmethod
+    def create_from_copy_column(cls, copy_column_number: int, ai_config: ColumnAIConfig) -> 'ColumnMapping':
+        """コピー列番号からColumnMappingを作成"""
+        column_letter = cls._number_to_letter(copy_column_number)
+        column_positions = ColumnPosition(
+            copy_column=copy_column_number,
+            process_column=copy_column_number - 2,
+            error_column=copy_column_number - 1,
+            result_column=copy_column_number + 1
+        )
+        
+        return cls(
+            column_letter=column_letter,
+            column_number=copy_column_number,
+            column_positions=column_positions,
+            ai_config=ai_config
+        )
+
+
 @dataclass
 class SheetConfig:
     """
@@ -118,6 +231,8 @@ class SheetConfig:
     # AI設定
     default_ai_service: AIService = AIService.CHATGPT  # デフォルトAI
     ai_configs: Dict[str, Dict[str, Any]] = None       # AIごとの設定
+    column_mappings: List[ColumnMapping] = None        # 列毎のAI設定マッピング
+    use_column_ai_settings: bool = False               # 列毎AI設定を使用するかどうか
     
     def __post_init__(self):
         """初期化後の処理"""
@@ -130,6 +245,49 @@ class SheetConfig:
         # AI設定の初期化
         if self.ai_configs is None:
             self.ai_configs = {}
+        if self.column_mappings is None:
+            self.column_mappings = []
+    
+    def add_column_mapping(self, copy_column_number: int, ai_config: ColumnAIConfig):
+        """列マッピングを追加"""
+        mapping = ColumnMapping.create_from_copy_column(copy_column_number, ai_config)
+        
+        # 既存のマッピングを削除（同じ列番号の場合）
+        self.column_mappings = [m for m in self.column_mappings if m.column_number != copy_column_number]
+        
+        # 新しいマッピングを追加
+        self.column_mappings.append(mapping)
+    
+    def get_column_mapping(self, copy_column_number: int) -> Optional[ColumnMapping]:
+        """指定した列番号のマッピングを取得"""
+        for mapping in self.column_mappings:
+            if mapping.column_number == copy_column_number:
+                return mapping
+        return None
+    
+    def get_ai_config_for_column(self, copy_column_number: int) -> ColumnAIConfig:
+        """指定した列のAI設定を取得（なければデフォルト設定）"""
+        mapping = self.get_column_mapping(copy_column_number)
+        if mapping and self.use_column_ai_settings:
+            return mapping.ai_config
+        
+        # デフォルト設定を返す
+        return ColumnAIConfig(
+            ai_service=self.default_ai_service,
+            ai_model=self._get_default_model(self.default_ai_service)
+        )
+    
+    def _get_default_model(self, ai_service: AIService) -> str:
+        """AIサービスのデフォルトモデルを取得"""
+        defaults = {
+            AIService.CHATGPT: "gpt-4",
+            AIService.CLAUDE: "claude-3-sonnet",
+            AIService.GEMINI: "gemini-pro",
+            AIService.GENSPARK: "default",
+            AIService.GOOGLE_AI_STUDIO: "gemini-pro",
+            AIService.PERPLEXITY: "claude-sonnet-4"
+        }
+        return defaults.get(ai_service, "default")
 
 
 @dataclass

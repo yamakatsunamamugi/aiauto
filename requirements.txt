@@ -10,6 +10,7 @@ google-api-python-client==2.108.0
 # Web Automation
 selenium==4.15.2
 webdriver-manager==4.0.1
+playwright==1.40.0
 
 # HTTP Requests
 requests==2.31.0

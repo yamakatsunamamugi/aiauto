@@ -11,7 +11,7 @@ from datetime import datetime
 
 from .models import (
     SheetConfig, TaskRow, TaskStatus, AIService, ColumnPosition,
-    SpreadsheetData, ProcessingResult, ValidationError
+    SpreadsheetData, ProcessingResult, ValidationError, ColumnAIConfig, ColumnMapping
 )
 from .sheets_client import SheetsClient, SheetsAPIError
 
@@ -244,20 +244,26 @@ class DataHandler:
             self.logger.error(f"列位置計算エラー: {e}")
             raise DataProcessingError(f"列位置の計算に失敗しました: {e}")
     
-    def get_ai_service_for_column(self, config: SheetConfig, copy_column: int) -> AIService:
+    def get_ai_config_for_column(self, config: SheetConfig, copy_column: int) -> ColumnAIConfig:
         """
-        指定された「コピー」列に対応するAIサービスを取得
+        指定された「コピー」列に対応するAI設定を取得
         
         Args:
             config: シート設定
             copy_column: 「コピー」列の位置
         
         Returns:
-            AIService: 使用するAIサービス
+            ColumnAIConfig: 使用するAI設定
         """
-        # 現時点では設定のデフォルトAIを返す
-        # 将来的にはヘッダー行からAI指定を読み取る機能を追加予定
-        return config.default_ai_service
+        # 列毎AI設定が有効で設定されている場合はそれを使用
+        if config.use_column_ai_settings:
+            mapping = config.get_column_mapping(copy_column)
+            if mapping:
+                self.logger.debug(f"列 {copy_column} の設定を使用: {mapping.ai_config.ai_service.value}")
+                return mapping.ai_config
+        
+        # デフォルト設定を返す
+        return config.get_ai_config_for_column(copy_column)
     
     def create_task_rows(self, sheet_data: SpreadsheetData) -> List[TaskRow]:
         """
@@ -294,8 +300,8 @@ class DataHandler:
                 # 列位置を計算
                 column_positions = self.create_column_positions(copy_column)
                 
-                # AIサービスを取得
-                ai_service = self.get_ai_service_for_column(sheet_data.config, copy_column)
+                # AI設定を取得
+                ai_config = self.get_ai_config_for_column(sheet_data.config, copy_column)
                 
                 # 各処理対象行でタスクを作成
                 for row_number in processing_rows:
@@ -316,8 +322,7 @@ class DataHandler:
                             task = TaskRow(
                                 row_number=row_number,
                                 copy_text=copy_text,
-                                ai_service=ai_service,
-                                ai_model=self._get_ai_model(sheet_data.config, ai_service),
+                                ai_config=ai_config,
                                 column_positions=column_positions,
                                 status=TaskStatus.PENDING,
                                 created_at=datetime.now()
@@ -325,7 +330,7 @@ class DataHandler:
                             tasks.append(task)
                             
                             self.logger.debug(f"タスクを生成: 行{row_number}, 列{copy_column}, "
-                                            f"テキスト長={len(copy_text)}")
+                                            f"AI={ai_config.ai_service.value}, テキスト長={len(copy_text)}")
                         else:
                             self.logger.debug(f"既に処理済みのセルをスキップ: {row_number}行目, {copy_column}列目")
                     
@@ -507,34 +512,63 @@ class DataHandler:
         except Exception:
             return ""
     
-    def _get_ai_model(self, config: SheetConfig, ai_service: AIService) -> str:
+    def load_column_ai_settings_from_config(self, config: SheetConfig, config_manager) -> bool:
         """
-        指定されたAIサービスのデフォルトモデルを取得
+        設定ファイルから列毎AI設定を読み込み
         
         Args:
             config: シート設定
-            ai_service: AIサービス
-        
+            config_manager: 設定マネージャー
+            
         Returns:
-            str: AIモデル名
+            bool: 読み込み成功フラグ
         """
         try:
-            if config.ai_configs and ai_service.value in config.ai_configs:
-                return config.ai_configs[ai_service.value].get('model', 'default')
+            column_ai_settings = config_manager.get("column_ai_settings", {})
+            ai_mode = config_manager.get("ai_mode", "simple")
             
-            # デフォルトモデル
-            model_defaults = {
-                AIService.CHATGPT: 'gpt-4',
-                AIService.CLAUDE: 'claude-3-sonnet',
-                AIService.GEMINI: 'gemini-pro',
-                AIService.GENSPARK: 'default',
-                AIService.GOOGLE_AI_STUDIO: 'gemini-pro'
-            }
-            
-            return model_defaults.get(ai_service, 'default')
-            
-        except Exception:
-            return 'default'
+            # 列毎設定モードが有効な場合
+            if ai_mode == "column" and column_ai_settings:
+                config.use_column_ai_settings = True
+                
+                # 設定ファイルから列設定を読み込み
+                for column_key, settings in column_ai_settings.items():
+                    try:
+                        # 列番号を取得（A=1, B=2, ...）
+                        if column_key.isalpha():
+                            copy_column = ColumnMapping._letter_to_number(column_key)
+                        else:
+                            copy_column = int(column_key)
+                        
+                        # AI設定を作成
+                        ai_config = ColumnAIConfig(
+                            ai_service=AIService(settings.get("ai_service", "chatgpt")),
+                            ai_model=settings.get("model", "default"),
+                            ai_mode=settings.get("mode"),
+                            ai_features=settings.get("features", []) if isinstance(settings.get("features"), list) else [],
+                            ai_settings=settings.get("settings", {})
+                        )
+                        
+                        # 列マッピングを追加
+                        config.add_column_mapping(copy_column, ai_config)
+                        
+                        self.logger.debug(f"列 {column_key} の設定を読み込み: {ai_config.ai_service.value}")
+                        
+                    except Exception as e:
+                        self.logger.warning(f"列 {column_key} の設定読み込みでエラー: {e}")
+                        continue
+                
+                self.logger.info(f"列毎AI設定を読み込み: {len(config.column_mappings)}列設定")
+                return True
+            else:
+                config.use_column_ai_settings = False
+                self.logger.info("シンプル選択モードを使用")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"列毎AI設定の読み込みエラー: {e}")
+            config.use_column_ai_settings = False
+            return False
 
 
 # ファクトリー関数とユーティリティ

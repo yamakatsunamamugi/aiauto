@@ -103,8 +103,22 @@ class MainWindow:
     def _create_ai_selection_section(self, parent: ttk.Frame, row: int):
         """AI選択セクションを作成"""
         # セクションフレーム
-        section_frame = ttk.LabelFrame(parent, text="AI選択", padding="5")
+        section_frame = ttk.LabelFrame(parent, text="AI設定", padding="5")
         section_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N), pady=(0, 10))
+        
+        # 選択モード
+        mode_frame = ttk.Frame(section_frame)
+        mode_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        self.ai_mode_var = tk.StringVar(value="simple")
+        ttk.Radiobutton(mode_frame, text="シンプル選択", variable=self.ai_mode_var, 
+                       value="simple", command=self.toggle_ai_mode).grid(row=0, column=0, padx=(0, 20))
+        ttk.Radiobutton(mode_frame, text="列毎設定", variable=self.ai_mode_var, 
+                       value="column", command=self.toggle_ai_mode).grid(row=0, column=1, padx=(0, 20))
+        
+        # シンプル選択フレーム
+        self.simple_ai_frame = ttk.Frame(section_frame)
+        self.simple_ai_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # AI選択チェックボックス
         ai_configs = self.config.get("ai_configs", {})
@@ -118,14 +132,15 @@ class MainWindow:
                 "claude": "Claude",
                 "gemini": "Gemini",
                 "genspark": "Genspark",
-                "google_ai_studio": "Google AI Studio"
+                "google_ai_studio": "Google AI Studio",
+                "perplexity": "Perplexity AI"
             }
             display_name = display_names.get(ai_name, ai_name.title())
             
             var = tk.BooleanVar()
             self.ai_selection_vars[ai_name] = var
             
-            checkbox = ttk.Checkbutton(section_frame, text=display_name, variable=var)
+            checkbox = ttk.Checkbutton(self.simple_ai_frame, text=display_name, variable=var)
             checkbox.grid(row=row_count, column=col_count, sticky=tk.W, padx=(0, 20), pady=2)
             
             col_count += 1
@@ -134,11 +149,36 @@ class MainWindow:
                 row_count += 1
         
         # 全選択・全解除ボタン
-        button_frame = ttk.Frame(section_frame)
-        button_frame.grid(row=row_count + 1, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+        simple_button_frame = ttk.Frame(self.simple_ai_frame)
+        simple_button_frame.grid(row=row_count + 1, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
         
-        ttk.Button(button_frame, text="全選択", command=self.select_all_ais, width=10).grid(row=0, column=0, padx=(0, 5))
-        ttk.Button(button_frame, text="全解除", command=self.deselect_all_ais, width=10).grid(row=0, column=1)
+        ttk.Button(simple_button_frame, text="全選択", command=self.select_all_ais, width=10).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(simple_button_frame, text="全解除", command=self.deselect_all_ais, width=10).grid(row=0, column=1)
+        
+        # 列毎設定フレーム
+        self.column_ai_frame = ttk.Frame(section_frame)
+        self.column_ai_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E))
+        
+        # 列毎設定説明
+        ttk.Label(self.column_ai_frame, text="スプレッドシートの各列に個別のAI設定を適用できます", 
+                 foreground="gray").grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        
+        # 列毎設定ボタン
+        column_button_frame = ttk.Frame(self.column_ai_frame)
+        column_button_frame.grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        
+        ttk.Button(column_button_frame, text="列毎AI設定を開く", 
+                  command=self.open_column_ai_settings, width=20).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(column_button_frame, text="最新AI情報を取得", 
+                  command=self.refresh_ai_info, width=20).grid(row=0, column=1)
+        
+        # 設定状況表示
+        self.column_status_label = ttk.Label(self.column_ai_frame, text="列毎設定: 未設定", 
+                                           foreground="gray")
+        self.column_status_label.grid(row=2, column=0, sticky=tk.W)
+        
+        # 初期状態は列毎設定を非表示
+        self.column_ai_frame.grid_remove()
         
     def _create_control_section(self, parent: ttk.Frame, row: int):
         """制御ボタンセクションを作成"""
@@ -210,6 +250,11 @@ class MainWindow:
             selected_ais = self.config.get("selected_ais", ["chatgpt"])
             for ai_name, var in self.ai_selection_vars.items():
                 var.set(ai_name in selected_ais)
+                
+            # AI設定モード
+            ai_mode = self.config.get("ai_mode", "simple")
+            self.ai_mode_var.set(ai_mode)
+            self.toggle_ai_mode()
             
             logger.info("設定を読み込みました")
         except Exception as e:
@@ -226,6 +271,9 @@ class MainWindow:
             # AI選択状態
             selected_ais = [ai_name for ai_name, var in self.ai_selection_vars.items() if var.get()]
             self.config.set("selected_ais", selected_ais)
+            
+            # AI設定モード
+            self.config.set("ai_mode", self.ai_mode_var.get())
             
             # 設定ファイル保存
             self.config.save_config()
@@ -291,11 +339,21 @@ class MainWindow:
         if not self.sheet_name_var.get().strip():
             messagebox.showwarning("警告", "シート名を選択してください。")
             return
-            
-        selected_ais = self.get_selected_ais()
-        if not selected_ais:
-            messagebox.showwarning("警告", "少なくとも1つのAIを選択してください。")
-            return
+        
+        # AI設定モードに応じた検証
+        ai_mode = self.ai_mode_var.get()
+        if ai_mode == "simple":
+            # シンプル選択モードの場合
+            selected_ais = self.get_selected_ais()
+            if not selected_ais:
+                messagebox.showwarning("警告", "少なくとも1つのAIを選択してください。")
+                return
+        else:
+            # 列毎設定モードの場合
+            column_settings = self.config.get("column_ai_settings", {})
+            if not column_settings:
+                messagebox.showwarning("警告", "列毎AI設定を行ってください。")
+                return
             
         # 設定保存
         self.save_settings()
@@ -311,8 +369,13 @@ class MainWindow:
         config = {
             "spreadsheet_url": self.spreadsheet_url_var.get(),
             "sheet_name": self.sheet_name_var.get(),
-            "selected_ais": selected_ais
+            "ai_mode": ai_mode
         }
+        
+        if ai_mode == "simple":
+            config["selected_ais"] = selected_ais
+        else:
+            config["column_ai_settings"] = self.config.get("column_ai_settings", {})
         
         # 別スレッドで自動化処理実行
         self.automation_thread = threading.Thread(
@@ -327,22 +390,103 @@ class MainWindow:
     def _run_automation_thread(self, config: Dict):
         """別スレッドで自動化処理を実行"""
         try:
-            if self.start_automation_callback:
-                self.start_automation_callback(config, self.update_progress_callback)
+            ai_mode = self.ai_mode_var.get()
+            
+            if ai_mode == "column":
+                # 列毎AI設定モードの場合
+                self._run_column_automation(config)
             else:
-                # 開発用のダミー処理
-                import time
-                for i in range(101):
-                    if not self.is_running:
-                        break
-                    time.sleep(0.1)
-                    self.root.after(0, self.update_progress_callback, i, 100, f"処理中... {i}%")
+                # シンプル選択モードの場合（従来の処理）
+                if self.start_automation_callback:
+                    self.start_automation_callback(config, self.update_progress_callback)
+                else:
+                    # 開発用のダミー処理
+                    import time
+                    for i in range(101):
+                        if not self.is_running:
+                            break
+                        time.sleep(0.1)
+                        self.root.after(0, self.update_progress_callback, i, 100, f"処理中... {i}%")
                 
         except Exception as e:
             logger.error(f"自動化処理エラー: {e}")
             self.root.after(0, self.add_log, "ERROR", f"自動化処理エラー: {e}")
         finally:
             self.root.after(0, self._automation_finished)
+    
+    def _run_column_automation(self, config: Dict):
+        """列毎AI設定モードでの自動化処理"""
+        try:
+            import asyncio
+            from src.automation.automation_controller import AutomationController
+            from src.sheets.sheets_client import create_sheets_client
+            
+            self.root.after(0, self.add_log, "INFO", "列毎AI設定モードで自動化を開始します")
+            
+            # 非同期処理を実行
+            async def run_column_automation():
+                try:
+                    # Sheetsクライアントを作成
+                    sheets_client = create_sheets_client()
+                    
+                    # AutomationControllerを初期化
+                    automation_controller = AutomationController()
+                    await automation_controller.initialize()
+                    
+                    # 列毎AI設定からタスクを作成
+                    tasks = await automation_controller.create_tasks_from_sheet(
+                        config["spreadsheet_url"],
+                        config["sheet_name"],
+                        sheets_client
+                    )
+                    
+                    if not tasks:
+                        self.root.after(0, self.add_log, "WARNING", "処理対象タスクが見つかりませんでした")
+                        return
+                    
+                    # 必要なAIサービスを特定
+                    required_ais = list(set(task.ai_service for task in tasks))
+                    self.root.after(0, self.add_log, "INFO", f"必要なAIサービス: {required_ais}")
+                    
+                    # AIハンドラーをセットアップ
+                    setup_results = await automation_controller.setup_ai_handlers(required_ais)
+                    failed_ais = [ai for ai, success in setup_results.items() if not success]
+                    
+                    if failed_ais:
+                        self.root.after(0, self.add_log, "WARNING", f"セットアップに失敗したAI: {failed_ais}")
+                    
+                    # 自動化処理開始
+                    def progress_callback(current, total, message):
+                        self.root.after(0, self.update_progress_callback, current, total, message)
+                    
+                    def log_callback(level, message):
+                        self.root.after(0, self.add_log, level, message)
+                    
+                    success = await automation_controller.start_automation(
+                        tasks, progress_callback, log_callback
+                    )
+                    
+                    if success:
+                        self.root.after(0, self.add_log, "INFO", "列毎AI自動化処理が完了しました")
+                    else:
+                        self.root.after(0, self.add_log, "ERROR", "列毎AI自動化処理に失敗しました")
+                    
+                    # クリーンアップ
+                    await automation_controller.shutdown()
+                    
+                except Exception as e:
+                    self.root.after(0, self.add_log, "ERROR", f"列毎AI自動化でエラー: {e}")
+                    logger.error(f"列毎AI自動化エラー: {e}")
+            
+            # イベントループで実行
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_column_automation())
+            loop.close()
+            
+        except Exception as e:
+            self.root.after(0, self.add_log, "ERROR", f"列毎AI自動化の初期化エラー: {e}")
+            logger.error(f"列毎AI自動化初期化エラー: {e}")
             
     def stop_automation(self):
         """自動化処理を停止"""
@@ -399,6 +543,145 @@ class MainWindow:
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state="disabled")
         
+    def toggle_ai_mode(self):
+        """AI設定モードを切り替え"""
+        mode = self.ai_mode_var.get()
+        
+        if mode == "simple":
+            self.simple_ai_frame.grid()
+            self.column_ai_frame.grid_remove()
+        else:  # column
+            self.simple_ai_frame.grid_remove()
+            self.column_ai_frame.grid()
+            self.update_column_status()
+            
+    def open_column_ai_settings(self):
+        """列毎AI設定ダイアログを開く"""
+        try:
+            # スプレッドシートの列情報を取得
+            sheet_columns = self.get_sheet_columns()
+            
+            from src.gui.column_ai_settings import ColumnAISettingsDialog
+            dialog = ColumnAISettingsDialog(self.root, self.config, sheet_columns)
+            self.root.wait_window(dialog.dialog)
+            
+            # 設定状況を更新
+            self.update_column_status()
+            
+        except ImportError as e:
+            messagebox.showerror("エラー", f"列毎設定ダイアログの読み込みに失敗しました: {e}")
+        except Exception as e:
+            messagebox.showerror("エラー", f"列毎設定ダイアログを開けませんでした: {e}")
+            
+    def get_sheet_columns(self) -> List[str]:
+        """スプレッドシートの列情報を取得"""
+        try:
+            # 実際のスプレッドシートから「コピー」列を検出
+            spreadsheet_url = self.spreadsheet_url_var.get().strip()
+            sheet_name = self.sheet_name_var.get().strip()
+            
+            if not spreadsheet_url or not sheet_name:
+                # スプレッドシート情報が不完全な場合はデフォルト
+                return ["C", "D", "E", "F", "G", "H", "I", "J"]
+            
+            # DataHandlerを使用して実際の「コピー」列を検出
+            from src.sheets.sheets_client import create_sheets_client
+            from src.sheets.data_handler import DataHandler
+            from src.sheets.models import SheetConfig
+            from src.utils.column_utils import column_number_to_letter
+            
+            sheets_client = create_sheets_client()
+            data_handler = DataHandler(sheets_client)
+            
+            # シート設定を作成
+            sheet_config = SheetConfig(
+                spreadsheet_url=spreadsheet_url,
+                sheet_name=sheet_name,
+                spreadsheet_id=""  # __post_init__で自動設定される
+            )
+            
+            # スプレッドシートデータを読み込み
+            sheet_data = data_handler.load_and_validate_sheet(sheet_config)
+            
+            # 「コピー」列を検出
+            copy_columns = data_handler.find_copy_columns(sheet_data)
+            
+            if copy_columns:
+                # 実際の「コピー」列を列記号に変換
+                column_letters = [column_number_to_letter(col) for col in copy_columns]
+                self.add_log("INFO", f"検出された「コピー」列: {column_letters}")
+                return column_letters
+            else:
+                # 「コピー」列が見つからない場合は一般的な位置を提案
+                suggested_columns = ["C", "E", "G", "I"]  # C列から奇数列
+                self.add_log("WARNING", f"「コピー」列が見つかりません。推奨位置: {suggested_columns}")
+                return suggested_columns
+                
+        except Exception as e:
+            logger.warning(f"列情報取得エラー: {e}")
+            self.add_log("WARNING", f"列情報取得エラー: {e}")
+            # エラー時はデフォルトの列を返す
+            return ["C", "D", "E", "F", "G", "H", "I", "J"]
+        
+    def refresh_ai_info(self):
+        """最新のAI情報を取得"""
+        try:
+            # Playwrightを使用して最新情報を取得
+            self.add_log("INFO", "最新AI情報の取得を開始しています...")
+            
+            # 別スレッドで実行
+            import threading
+            
+            def refresh_thread():
+                try:
+                    from src.utils.playwright_search import search_ai_models_sync
+                    
+                    ai_services = ["chatgpt", "claude", "gemini", "perplexity", "genspark"]
+                    results = search_ai_models_sync(ai_services, headless=True)
+                    
+                    self.root.after(0, self._on_ai_info_refreshed, results)
+                    
+                except Exception as e:
+                    self.root.after(0, self.add_log, "ERROR", f"AI情報取得エラー: {e}")
+                    
+            thread = threading.Thread(target=refresh_thread, daemon=True)
+            thread.start()
+            
+        except ImportError:
+            messagebox.showinfo("情報", "Playwright検索機能は未インストールです。")
+        except Exception as e:
+            self.add_log("ERROR", f"AI情報取得の開始に失敗しました: {e}")
+            
+    def _on_ai_info_refreshed(self, results):
+        """AI情報取得完了時の処理"""
+        if "batch_search_results" in results:
+            success_count = sum(1 for info in results["batch_search_results"].values() 
+                              if "error" not in info)
+            total_count = len(results["batch_search_results"])
+            
+            self.add_log("INFO", f"AI情報取得完了: {success_count}/{total_count} サービス")
+            
+            # 取得した情報を設定に反映（今後実装）
+            # self.update_ai_configs_from_search(results)
+        else:
+            self.add_log("WARNING", "AI情報の取得に失敗しました")
+            
+    def update_column_status(self):
+        """列毎設定の状況を更新"""
+        column_settings = self.config.get("column_ai_settings", {})
+        
+        if column_settings:
+            count = len(column_settings)
+            self.column_status_label.config(
+                text=f"列毎設定: {count}列設定済み", 
+                foreground="green"
+            )
+        else:
+            self.column_status_label.config(
+                text="列毎設定: 未設定", 
+                foreground="gray"
+            )
+            
     def open_settings(self):
         """設定画面を開く"""
         try:

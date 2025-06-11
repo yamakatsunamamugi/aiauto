@@ -1,0 +1,306 @@
+{
+  "last_updated": "2025-06-11",
+  "version": "1.0.0",
+  "services": {
+    "claude_ai": {
+      "url": "https://claude.ai",
+      "name": "Claude.ai",
+      "selectors": {
+        "login_indicators": [
+          "button:has-text(\"Sign in\")",
+          "a:has-text(\"Login\")",
+          "[data-testid*=\"login\"]",
+          ".login-button",
+          "[href*=\"login\"]"
+        ],
+        "logged_in_indicators": [
+          "[data-testid*=\"user\"]",
+          "[data-testid*=\"avatar\"]",
+          ".user-menu",
+          "[aria-label*=\"user menu\"]",
+          ".profile-button"
+        ],
+        "text_input": [
+          "textarea[placeholder*=\"message\"]",
+          "textarea[placeholder*=\"Message Claude\"]",
+          "textarea[data-testid*=\"chat-input\"]",
+          "textarea[aria-label*=\"message\"]",
+          "[contenteditable=\"true\"][data-testid*=\"input\"]",
+          ".ProseMirror",
+          "[role=\"textbox\"]"
+        ],
+        "submit_button": [
+          "button[data-testid*=\"send\"]",
+          "button[aria-label*=\"Send message\"]",
+          "button:has(svg[data-icon*=\"send\"])",
+          "button:has(svg[data-icon*=\"arrow-up\"])",
+          ".send-button",
+          "[data-testid*=\"submit\"]"
+        ],
+        "response_area": [
+          "[data-testid*=\"message\"]",
+          "[data-testid*=\"conversation\"]",
+          ".message-content",
+          "[role=\"log\"]",
+          ".chat-messages",
+          "[data-message-author-role*=\"assistant\"]"
+        ],
+        "model_selector": [
+          "button[data-testid*=\"model\"]",
+          "[aria-label*=\"model\"]",
+          ".model-selector",
+          "[data-testid*=\"dropdown\"]",
+          "select[name*=\"model\"]"
+        ],
+        "streaming_indicators": [
+          "[aria-busy=\"true\"]",
+          ".streaming",
+          ".typing-indicator",
+          ".cursor-blink"
+        ]
+      }
+    },
+    "chatgpt": {
+      "url": "https://chat.openai.com",
+      "name": "ChatGPT",
+      "selectors": {
+        "login_indicators": [
+          "button:has-text(\"Log in\")",
+          "a[href*=\"auth/login\"]",
+          ".login-button"
+        ],
+        "logged_in_indicators": [
+          "[data-testid*=\"user-menu\"]",
+          ".user-avatar",
+          "[aria-label*=\"user menu\"]"
+        ],
+        "text_input": [
+          "textarea[placeholder*=\"Message ChatGPT\"]",
+          "textarea[data-testid*=\"prompt-textarea\"]",
+          "#prompt-textarea",
+          "textarea[rows]",
+          "[contenteditable=\"true\"]",
+          "div[role=\"textbox\"]"
+        ],
+        "submit_button": [
+          "button[data-testid*=\"send-button\"]",
+          "button[aria-label*=\"Send message\"]",
+          "button:has(svg[data-testid*=\"send-icon\"])",
+          "[data-testid*=\"fruitjuice-send-button\"]"
+        ],
+        "response_area": [
+          "[data-message-author-role=\"assistant\"]",
+          ".markdown",
+          "[data-testid*=\"conversation-turn\"]",
+          ".message-content"
+        ],
+        "model_selector": [
+          "button[data-testid*=\"model-switcher\"]",
+          ".model-switcher",
+          "[aria-label*=\"model\"]"
+        ],
+        "streaming_indicators": [
+          "[aria-busy=\"true\"]",
+          ".result-streaming",
+          ".cursor-blink"
+        ]
+      }
+    },
+    "gemini": {
+      "url": "https://gemini.google.com",
+      "name": "Google Gemini",
+      "selectors": {
+        "login_indicators": [
+          "button:has-text(\"Sign in\")",
+          "a[href*=\"accounts.google.com\"]"
+        ],
+        "logged_in_indicators": [
+          "[data-testid*=\"user-avatar\"]",
+          ".user-avatar",
+          "[aria-label*=\"Google Account\"]"
+        ],
+        "text_input": [
+          "textarea[aria-label*=\"Enter a prompt\"]",
+          "textarea[data-testid*=\"input\"]",
+          ".ql-editor",
+          "[contenteditable=\"true\"]",
+          "rich-textarea textarea"
+        ],
+        "submit_button": [
+          "button[aria-label*=\"Submit\"]",
+          "button[data-testid*=\"send\"]",
+          "button:has(svg[aria-label*=\"Send\"])",
+          ".send-button"
+        ],
+        "response_area": [
+          "[data-testid*=\"response\"]",
+          ".response-content",
+          "[role=\"main\"] .message",
+          ".model-response"
+        ],
+        "model_selector": [
+          "button[data-testid*=\"model-picker\"]",
+          ".model-picker",
+          "[aria-label*=\"Gemini\"]"
+        ],
+        "streaming_indicators": [
+          ".response-streaming",
+          "[aria-busy=\"true\"]"
+        ]
+      }
+    },
+    "google_ai_studio": {
+      "url": "https://aistudio.google.com",
+      "name": "Google AI Studio",
+      "selectors": {
+        "login_indicators": [
+          "button:has-text(\"Sign in\")",
+          "[href*=\"accounts.google.com\"]"
+        ],
+        "logged_in_indicators": [
+          "[data-testid*=\"user-menu\"]",
+          ".user-info"
+        ],
+        "text_input": [
+          "textarea[placeholder*=\"Enter prompt\"]",
+          ".cm-editor textarea",
+          "[data-testid*=\"prompt-input\"]",
+          "textarea[aria-label*=\"prompt\"]"
+        ],
+        "submit_button": [
+          "button[aria-label*=\"Run\"]",
+          "button:has-text(\"Run\")",
+          "[data-testid*=\"run-button\"]"
+        ],
+        "response_area": [
+          "[data-testid*=\"output\"]",
+          ".output-content",
+          ".response-panel"
+        ],
+        "model_selector": [
+          "select[data-testid*=\"model\"]",
+          ".model-selector",
+          "[aria-label*=\"Model\"]"
+        ]
+      }
+    },
+    "genspark": {
+      "url": "https://www.genspark.ai",
+      "name": "Genspark",
+      "selectors": {
+        "login_indicators": [
+          "button:has-text(\"Sign in\")",
+          "a:has-text(\"Login\")"
+        ],
+        "logged_in_indicators": [
+          "[data-testid*=\"user\"]",
+          ".user-avatar"
+        ],
+        "text_input": [
+          "textarea[placeholder*=\"Ask me anything\"]",
+          "input[type=\"text\"][placeholder*=\"search\"]",
+          "[data-testid*=\"search-input\"]",
+          "textarea[name*=\"query\"]"
+        ],
+        "submit_button": [
+          "button[aria-label*=\"Search\"]",
+          "button:has-text(\"Generate\")",
+          ".search-button"
+        ],
+        "response_area": [
+          "[data-testid*=\"sparkpage\"]",
+          ".response-container",
+          ".generated-content"
+        ],
+        "model_selector": [
+          ".model-switch",
+          "[data-testid*=\"model\"]"
+        ]
+      }
+    }
+  },
+  "common_patterns": {
+    "text_inputs": [
+      "textarea[placeholder*=\"message\"]",
+      "textarea[placeholder*=\"prompt\"]",
+      "textarea[placeholder*=\"ask\"]",
+      "textarea[placeholder*=\"type\"]",
+      "textarea[data-testid*=\"input\"]",
+      "textarea[aria-label*=\"input\"]",
+      "textarea[aria-label*=\"message\"]",
+      "[contenteditable=\"true\"]",
+      "input[type=\"text\"][placeholder*=\"message\"]",
+      "div[role=\"textbox\"]"
+    ],
+    "submit_buttons": [
+      "button[data-testid*=\"send\"]",
+      "button[aria-label*=\"send\"]",
+      "button[aria-label*=\"submit\"]",
+      "button[type=\"submit\"]",
+      "button:has-text(\"Send\")",
+      "button:has-text(\"Submit\")",
+      "[role=\"button\"]:has-text(\"Send\")",
+      "button svg[data-icon*=\"send\"]",
+      "button svg[data-icon*=\"arrow\"]"
+    ],
+    "response_areas": [
+      "[data-testid*=\"message\"]",
+      "[data-testid*=\"response\"]",
+      "[role=\"log\"]",
+      "[role=\"main\"] > div",
+      ".message-content",
+      ".response-content",
+      "[aria-live=\"polite\"]",
+      "[aria-live=\"assertive\"]"
+    ],
+    "login_indicators": [
+      "button:has-text(\"Sign in\")",
+      "button:has-text(\"Log in\")",
+      "button:has-text(\"Login\")",
+      "a:has-text(\"Sign in\")",
+      "a:has-text(\"Log in\")",
+      "[data-testid*=\"login\"]",
+      "[data-testid*=\"signin\"]"
+    ],
+    "logged_in_indicators": [
+      "[data-testid*=\"user\"]",
+      "[data-testid*=\"avatar\"]",
+      "[aria-label*=\"user\"]",
+      "[aria-label*=\"profile\"]",
+      ".user-avatar",
+      ".profile-button",
+      "button[aria-haspopup=\"menu\"]"
+    ],
+    "streaming_indicators": [
+      "[aria-busy=\"true\"]",
+      ".streaming",
+      ".typing-indicator",
+      ".cursor-blink",
+      ".loading"
+    ]
+  },
+  "fallback_strategies": {
+    "text_by_content": {
+      "login_buttons": ["Sign in", "Log in", "Login"],
+      "send_buttons": ["Send", "Submit", "Generate"],
+      "model_buttons": ["Model", "GPT", "Claude", "Gemini"]
+    },
+    "keyboard_shortcuts": {
+      "submit_message": "Enter",
+      "new_chat": "Ctrl+Shift+O",
+      "focus_input": "/"
+    }
+  },
+  "wait_strategies": {
+    "default_timeout": 5000,
+    "response_timeout": 30000,
+    "login_timeout": 10000,
+    "page_load_timeout": 15000
+  },
+  "notes": {
+    "update_frequency": "Monthly selector validation recommended",
+    "anti_bot_protection": "Many services implement bot detection",
+    "rate_limiting": "All services have rate limits",
+    "authentication_required": "Most features require active login sessions"
+  }
+}

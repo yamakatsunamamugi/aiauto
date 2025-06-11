@@ -43,5 +43,7 @@
   "logging": {
     "level": "INFO",
     "file": "logs/app.log"
-  }
+  },
+  "selected_ais": [],
+  "ai_mode": "simple"
 }

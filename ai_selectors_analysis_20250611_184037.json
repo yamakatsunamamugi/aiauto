@@ -1,0 +1,17 @@
+{
+  "Claude.ai": {
+    "error": "net::ERR_ABORTED at https://claude.ai/"
+  },
+  "Gemini": {
+    "error": "net::ERR_ABORTED at https://gemini.google.com/"
+  },
+  "Genspark": {
+    "error": "net::ERR_ABORTED at https://www.genspark.ai/"
+  },
+  "Google AI Studio": {
+    "error": "Target page, context or browser has been closed"
+  },
+  "ChatGPT": {
+    "error": "Target page, context or browser has been closed"
+  }
+}
