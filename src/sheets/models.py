@@ -49,8 +49,6 @@ class TaskRow:
     copy_text: str
     ai_config: ColumnAIConfig
     column_positions: ColumnPositions
-    
-    # 処理状態
     status: str = "未処理"
     result: Optional[str] = None
     error_message: Optional[str] = None
