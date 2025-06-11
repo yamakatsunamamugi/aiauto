@@ -307,10 +307,28 @@ class MainWindow:
                 self.sheet_combo.current(0)
                 self.add_log("INFO", "ダミーシート名を設定しました（開発用）")
                 
+        except FileNotFoundError as e:
+            logger.error(f"認証ファイルが見つかりません: {e}")
+            self.add_log("ERROR", "Google Sheets認証ファイルが見つかりません")
+            messagebox.showerror("認証エラー", 
+                "Google Sheets APIの認証ファイルが見つかりません。\n\n" +
+                "config/credentials.json ファイルが存在することを確認してください。\n" +
+                "詳細はドキュメントの「sheets_setup_guide.md」を参照してください。")
+        except PermissionError as e:
+            logger.error(f"アクセス権限エラー: {e}")
+            self.add_log("ERROR", "スプレッドシートへのアクセス権限がありません")
+            messagebox.showerror("権限エラー", 
+                "指定されたスプレッドシートへのアクセス権限がありません。\n\n" +
+                "以下を確認してください：\n" +
+                "1. スプレッドシートが共有されている\n" +
+                "2. サービスアカウントに編集権限が付与されている")
         except Exception as e:
             logger.error(f"シート名取得エラー: {e}")
-            self.add_log("ERROR", f"シート名取得エラー: {e}")
-            messagebox.showerror("エラー", f"シート名の取得に失敗しました。\n{e}")
+            self.add_log("ERROR", f"シート名取得エラー: {str(e)}")
+            messagebox.showerror("エラー", 
+                f"シート名の取得に失敗しました。\n\n" +
+                f"エラー内容: {str(e)}\n\n" +
+                "URLが正しいか確認してください。")
             
     def select_all_ais(self):
         """全AIを選択"""
@@ -332,12 +350,28 @@ class MainWindow:
             return
             
         # 入力検証
-        if not self.spreadsheet_url_var.get().strip():
-            messagebox.showwarning("警告", "スプレッドシートURLを入力してください。")
+        spreadsheet_url = self.spreadsheet_url_var.get().strip()
+        if not spreadsheet_url:
+            messagebox.showwarning("入力エラー", 
+                "スプレッドシートURLを入力してください。\n\n" +
+                "例: https://docs.google.com/spreadsheets/d/xxxxx/edit")
+            self.url_entry.focus_set()
+            return
+        
+        # URL形式の検証
+        if not spreadsheet_url.startswith("https://docs.google.com/spreadsheets/d/"):
+            messagebox.showwarning("URL形式エラー", 
+                "有効なGoogleスプレッドシートのURLを入力してください。\n\n" +
+                "正しい形式: https://docs.google.com/spreadsheets/d/xxxxx/edit")
+            self.url_entry.focus_set()
             return
             
-        if not self.sheet_name_var.get().strip():
-            messagebox.showwarning("警告", "シート名を選択してください。")
+        sheet_name = self.sheet_name_var.get().strip()
+        if not sheet_name:
+            messagebox.showwarning("選択エラー", 
+                "シート名を選択してください。\n\n" +
+                "ヒント: まず[取得]ボタンをクリックしてシート一覧を取得してください。")
+            self.sheet_combo.focus_set()
             return
         
         # AI設定モードに応じた検証
@@ -346,13 +380,18 @@ class MainWindow:
             # シンプル選択モードの場合
             selected_ais = self.get_selected_ais()
             if not selected_ais:
-                messagebox.showwarning("警告", "少なくとも1つのAIを選択してください。")
+                messagebox.showwarning("選択エラー", 
+                    "少なくとも1つのAIサービスを選択してください。\n\n" +
+                    "処理に使用するAIサービスにチェックを入れてください。")
                 return
         else:
             # 列毎設定モードの場合
             column_settings = self.config.get("column_ai_settings", {})
             if not column_settings:
-                messagebox.showwarning("警告", "列毎AI設定を行ってください。")
+                messagebox.showwarning("設定エラー", 
+                    "列毎AI設定を行ってください。\n\n" +
+                    "[列毎AI設定を開く]ボタンをクリックして、\n" +
+                    "各列で使用するAIサービスを設定してください。")
                 return
             
         # 設定保存

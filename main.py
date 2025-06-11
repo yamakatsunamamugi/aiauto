@@ -56,20 +56,28 @@ def main():
         def setup_integration(app):
             """他モジュールとの統合設定"""
             try:
-                # Google Sheets連携（担当者B実装予定）
-                # from src.sheets.sheets_client import SheetsClient
-                # sheets_client = SheetsClient()
-                # app.set_get_sheet_names_callback(sheets_client.get_sheet_names)
+                # Google Sheets連携
+                from src.sheets.sheets_client import SheetsClient
+                sheets_client = SheetsClient()
+                app.set_get_sheet_names_callback(sheets_client.get_sheet_names)
+                logger.info("Google Sheets連携を設定しました")
                 
-                # ブラウザ自動化連携（担当者C実装予定）
-                # from src.automation.automation_controller import AutomationController
-                # automation_controller = AutomationController()
-                # app.set_start_automation_callback(automation_controller.start_automation)
+                # ブラウザ自動化連携
+                from src.automation.automation_controller import AutomationController
+                automation_controller = AutomationController()
+                app.set_start_automation_callback(automation_controller.start_automation)
+                logger.info("ブラウザ自動化連携を設定しました")
                 
                 logger.info("統合機能の設定が完了しました")
             except ImportError as e:
-                logger.warning(f"統合モジュールが未実装です: {e}")
+                logger.warning(f"統合モジュールのインポートに失敗しました: {e}")
                 logger.info("一部機能は開発中のため利用できません")
+            except FileNotFoundError as e:
+                logger.warning(f"認証ファイルが見つかりません: {e}")
+                logger.info("Google Sheets認証の設定を確認してください")
+            except Exception as e:
+                logger.error(f"統合設定中にエラーが発生しました: {e}")
+                logger.info("統合機能の一部が利用できない可能性があります")
         
         logger.info("GUIアプリケーションを起動します")
         app = MainWindow()
