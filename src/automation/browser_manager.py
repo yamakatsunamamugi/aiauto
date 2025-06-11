@@ -41,17 +41,11 @@ class BrowserManager:
         Returns:
             str: Chromeユーザーデータディレクトリのパス
         """
-        system = platform.system()
-        
-        if system == "Darwin":  # macOS
-            return str(Path.home() / "Library/Application Support/Google/Chrome")
-        elif system == "Windows":
-            return str(Path.home() / "AppData/Local/Google/Chrome/User Data")
-        elif system == "Linux":
-            return str(Path.home() / ".config/google-chrome")
-        else:
-            logger.warning(f"未対応のOS: {system}")
-            return str(Path.home() / ".chrome")
+        # テスト用や競合回避のため、一時的なプロファイルディレクトリを使用
+        import tempfile
+        temp_dir = tempfile.mkdtemp(prefix="playwright_chrome_")
+        logger.info(f"一時的なChromeプロファイルを使用: {temp_dir}")
+        return temp_dir
 
     async def launch_browser(self) -> Browser:
         """
