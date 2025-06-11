@@ -48,11 +48,36 @@ def main():
     logger = setup_logging()
     
     try:
-        # GUI起動（担当者A実装予定）
+        # GUI起動
         from src.gui.main_window import MainWindow
+        
+        # 統合機能を実装する場合のコールバック設定例
+        # （他担当者のモジュールが完成後に有効化）
+        def setup_integration(app):
+            """他モジュールとの統合設定"""
+            try:
+                # Google Sheets連携（担当者B実装予定）
+                # from src.sheets.sheets_client import SheetsClient
+                # sheets_client = SheetsClient()
+                # app.set_get_sheet_names_callback(sheets_client.get_sheet_names)
+                
+                # ブラウザ自動化連携（担当者C実装予定）
+                # from src.automation.automation_controller import AutomationController
+                # automation_controller = AutomationController()
+                # app.set_start_automation_callback(automation_controller.start_automation)
+                
+                logger.info("統合機能の設定が完了しました")
+            except ImportError as e:
+                logger.warning(f"統合モジュールが未実装です: {e}")
+                logger.info("一部機能は開発中のため利用できません")
         
         logger.info("GUIアプリケーションを起動します")
         app = MainWindow()
+        
+        # 統合機能設定
+        setup_integration(app)
+        
+        # アプリケーション実行
         app.run()
         
     except ImportError as e:

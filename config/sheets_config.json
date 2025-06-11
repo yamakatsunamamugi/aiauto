@@ -1,0 +1,88 @@
+{
+  "default_settings": {
+    "work_header_row": 5,
+    "start_row": 6,
+    "default_ai_service": "chatgpt",
+    "api_delay": 0.1,
+    "batch_size": 100,
+    "retry_count": 5,
+    "retry_delay": 10
+  },
+  "ai_models": {
+    "chatgpt": {
+      "default_model": "gpt-4",
+      "available_models": [
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-3.5-turbo"
+      ],
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "enable_deep_think": true
+      }
+    },
+    "claude": {
+      "default_model": "claude-3-sonnet",
+      "available_models": [
+        "claude-3-opus",
+        "claude-3-sonnet",
+        "claude-3-haiku"
+      ],
+      "settings": {
+        "max_tokens": 4000,
+        "enable_analysis": true
+      }
+    },
+    "gemini": {
+      "default_model": "gemini-pro",
+      "available_models": [
+        "gemini-pro",
+        "gemini-pro-vision"
+      ],
+      "settings": {
+        "temperature": 0.7,
+        "max_output_tokens": 4000
+      }
+    },
+    "genspark": {
+      "default_model": "default",
+      "available_models": [
+        "default"
+      ],
+      "settings": {}
+    },
+    "google_ai_studio": {
+      "default_model": "gemini-pro",
+      "available_models": [
+        "gemini-pro",
+        "gemini-pro-vision"
+      ],
+      "settings": {
+        "temperature": 0.7,
+        "max_output_tokens": 4000
+      }
+    }
+  },
+  "column_mapping": {
+    "process_column_offset": -2,
+    "error_column_offset": -1,
+    "result_column_offset": 1
+  },
+  "validation_rules": {
+    "required_headers": ["作業"],
+    "required_copy_columns": ["コピー"],
+    "min_rows": 5,
+    "max_text_length": 10000
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": "logs/sheets.log"
+  },
+  "backup": {
+    "auto_backup": true,
+    "backup_before_processing": true,
+    "backup_suffix_format": "_%Y%m%d_%H%M%S"
+  }
+}
