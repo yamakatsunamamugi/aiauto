@@ -21,6 +21,10 @@ from .retry_manager import RetryManager
 from .session_manager import SessionManager
 from .ai_handlers.base_handler import BaseAIHandler, SessionExpiredError
 from .ai_handlers.chatgpt_handler import ChatGPTHandler
+from .ai_handlers.claude_handler import ClaudeHandler
+from .ai_handlers.gemini_handler import GeminiHandler
+from .ai_handlers.genspark_handler import GensparkHandler
+from .ai_handlers.google_ai_studio_handler import GoogleAIStudioHandler
 
 
 @dataclass
@@ -96,11 +100,10 @@ class AutomationController:
         self.ai_handlers: Dict[str, BaseAIHandler] = {}
         self.available_ais = {
             'chatgpt': ChatGPTHandler,
-            # 他のハンドラーは別の開発者が実装予定
-            # 'claude': ClaudeHandler,
-            # 'gemini': GeminiHandler,
-            # 'genspark': GensparkHandler,
-            # 'google_ai_studio': GoogleAIStudioHandler
+            'claude': ClaudeHandler,
+            'gemini': GeminiHandler,
+            'genspark': GensparkHandler,
+            'google_ai_studio': GoogleAIStudioHandler
         }
         
         # 処理状態管理
