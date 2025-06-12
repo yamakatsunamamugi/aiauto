@@ -23,24 +23,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.absolute()
 sys.path.insert(0, str(project_root))
 
-try:
-    from src.automation.extension_bridge import ExtensionBridge
-    from src.sheets.sheets_client import SheetsClient
-except ImportError:
-    # フォールバック用ダミークラス
-    class ExtensionBridge:
-        def process_with_extension(self, **kwargs):
-            return {"success": True, "result": "テスト応答"}
-    
-    class SheetsClient:
-        def get_spreadsheet_info(self, sheet_id):
-            return {"sheets": [{"properties": {"title": "テストシート"}}]}
-        
-        def read_range(self, sheet_id, range_name):
-            return [["A", "B", "C"], ["作業", "処理", "エラー", "コピー", "貼り付け"], ["1", "", "", "テストテキスト", ""]]
-        
-        def write_range(self, sheet_id, range_name, values):
-            return True
+# インポートは initialize_clients() で動的に行う
 
 class SpreadsheetAutomationGUI:
     """CLAUDE.md要件完全対応GUIクラス"""
@@ -178,11 +161,26 @@ class SpreadsheetAutomationGUI:
     def initialize_clients(self):
         """APIクライアント初期化"""
         try:
+            # SheetsClientをインポートして初期化
+            from src.sheets.sheets_client import SheetsClient
             self.sheets_client = SheetsClient()
-            self.extension_bridge = ExtensionBridge()
+            
+            # ExtensionBridgeをインポートして初期化
+            try:
+                from src.automation.extension_bridge import ExtensionBridge
+                self.extension_bridge = ExtensionBridge()
+            except ImportError:
+                # フォールバック用ダミークラス
+                class DummyExtensionBridge:
+                    def process_with_extension(self, **kwargs):
+                        return {"success": True, "result": "テスト応答"}
+                self.extension_bridge = DummyExtensionBridge()
+                self.log("⚠️ ExtensionBridgeが見つかりません。ダミークラスを使用します")
+            
             self.log("✅ APIクライアント初期化完了")
         except Exception as e:
             self.log(f"❌ APIクライアント初期化失敗: {e}")
+            self.log(f"📝 詳細エラー: {type(e).__name__}: {e}")
     
     def load_from_url(self):
         """URLからスプレッドシート読み込み"""
@@ -273,12 +271,12 @@ class SpreadsheetAutomationGUI:
             self.work_row = None
             for i in range(4, min(10, len(self.sheet_data))):  # 5-10行目を検索
                 if (len(self.sheet_data[i]) > 0 and 
-                    '作業' in str(self.sheet_data[i][0])):
+                    '作業指示行' in str(self.sheet_data[i][0])):
                     self.work_row = i
                     break
             
             if self.work_row is None:
-                messagebox.showerror("エラー", "作業指示行（A列に「作業」）が見つかりません")
+                messagebox.showerror("エラー", "作業指示行（A列に「作業指示行」）が見つかりません")
                 return
             
             # コピー列を検索
@@ -714,7 +712,7 @@ def main():
 
 2. 📋 シート情報読込
    - 「シート情報読込」で作業指示行を自動検出
-   - 5行目のA列「作業」から構造解析
+   - 5行目のA列「作業指示行」から構造解析
    - 複数のコピー列を自動検出
 
 3. 🤖 AI設定
