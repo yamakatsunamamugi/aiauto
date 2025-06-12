@@ -15,11 +15,19 @@ class AIAutomationContent {
 
     detectAISite() {
         const hostname = window.location.hostname;
-        if (hostname.includes('openai.com') || hostname.includes('chatgpt.com')) return 'chatgpt';
+        const url = window.location.href;
+        console.log('AI自動化: サイト検出中', { hostname, url });
+        
+        if (hostname.includes('openai.com') || hostname.includes('chatgpt.com')) {
+            console.log('AI自動化: ChatGPTを検出');
+            return 'chatgpt';
+        }
         if (hostname.includes('claude.ai')) return 'claude';
         if (hostname.includes('gemini.google.com')) return 'gemini';
         if (hostname.includes('genspark.ai')) return 'genspark';
         if (hostname.includes('aistudio.google.com')) return 'google_ai_studio';
+        
+        console.log('AI自動化: 未対応サイト', hostname);
         return 'unknown';
     }
 

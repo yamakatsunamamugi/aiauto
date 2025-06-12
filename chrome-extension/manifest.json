@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "*://chatgpt.com/*",
+    "*://chat.openai.com/*",
     "*://claude.ai/*",
     "*://gemini.google.com/*",
     "*://www.genspark.ai/*",
@@ -19,6 +20,7 @@
     {
       "matches": [
         "*://chatgpt.com/*",
+        "*://chat.openai.com/*",
         "*://claude.ai/*",
         "*://gemini.google.com/*",
         "*://www.genspark.ai/*",
