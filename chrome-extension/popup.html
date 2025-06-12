@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Automation Bridge</h1>
+        <div class="status">
+            <span id="status-indicator">●</span>
+            <span id="status-text">待機中</span>
+        </div>
+
+        <div class="section">
+            <h3>対応AIサービス</h3>
+            <ul id="ai-services">
+                <li><span class="service-name">ChatGPT</span> <span class="service-status" data-service="chatgpt">-</span></li>
+                <li><span class="service-name">Claude</span> <span class="service-status" data-service="claude">-</span></li>
+                <li><span class="service-name">Gemini</span> <span class="service-status" data-service="gemini">-</span></li>
+                <li><span class="service-name">Genspark</span> <span class="service-status" data-service="genspark">-</span></li>
+                <li><span class="service-name">Google AI Studio</span> <span class="service-status" data-service="google_ai_studio">-</span></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>統計情報</h3>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">処理中リクエスト:</span>
+                    <span id="active-requests">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">総処理数:</span>
+                    <span id="total-processed">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <button id="test-button">接続テスト</button>
+            <button id="clear-storage">ストレージクリア</button>
+            <div id="test-result"></div>
+        </div>
+
+        <div class="section">
+            <h3>デバッグ情報</h3>
+            <div id="debug-info">
+                <div class="debug-item">
+                    <span class="debug-label">現在のサイト:</span>
+                    <span id="current-site">不明</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">拡張機能バージョン:</span>
+                    <span id="extension-version">1.0.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
