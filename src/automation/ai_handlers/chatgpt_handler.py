@@ -286,6 +286,164 @@ class ChatGPTHandler(BaseAIHandler):
             logger.error(f"ChatGPT: モデル一覧取得でエラー: {e}")
             return ["GPT-4", "GPT-3.5"]
 
+    async def process_text(self, text: str, model: Optional[str] = None, timeout: int = 60) -> str:
+        """
+        ChatGPTでテキストを処理
+        
+        Args:
+            text: 処理するテキスト
+            model: 使用するモデル（省略可）
+            timeout: タイムアウト時間（秒）
+            
+        Returns:
+            str: ChatGPTの応答テキスト
+        """
+        try:
+            self._log_operation(f"ChatGPTでテキスト処理開始: {text[:50]}...")
+            
+            # ログイン状態確認
+            if not await self.login_check():
+                raise SessionExpiredError("ChatGPTにログインしていません")
+            
+            # 新しいチャットを開始（オプション）
+            await self._start_new_chat()
+            
+            # モデル設定（指定された場合）
+            if model:
+                await self.set_model(model)
+            
+            # テキストを入力
+            await self._input_text(text)
+            
+            # 送信
+            await self._submit_message()
+            
+            # 応答完了を待機
+            await self._wait_for_response_complete()
+            
+            # 最新の応答を取得
+            response_text = await self._get_latest_response()
+            
+            if response_text:
+                self._log_operation(f"ChatGPT応答取得成功: {len(response_text)}文字")
+                return response_text
+            else:
+                raise Exception("ChatGPTから応答を取得できませんでした")
+                
+        except Exception as e:
+            self._log_operation(f"ChatGPT処理エラー: {e}")
+            raise
+
+    async def _start_new_chat(self) -> bool:
+        """新しいチャットを開始"""
+        try:
+            new_chat_selectors = [
+                "button[aria-label*='New chat']",
+                "[data-testid='new-chat-button']",
+                "button:has-text('New chat')",
+                ".new-chat-button"
+            ]
+            
+            for selector in new_chat_selectors:
+                try:
+                    button = await self.page.wait_for_selector(selector, timeout=3000)
+                    if button:
+                        await button.click()
+                        await asyncio.sleep(1)
+                        return True
+                except PlaywrightTimeoutError:
+                    continue
+            
+            # 新しいチャットボタンが見つからない場合はそのまま続行
+            return True
+            
+        except Exception as e:
+            logger.warning(f"ChatGPT: 新しいチャット開始でエラー: {e}")
+            return True
+
+    async def _input_text(self, text: str) -> bool:
+        """テキストを入力欄に入力"""
+        try:
+            input_selector = await self.get_input_selector()
+            input_element = await self.page.wait_for_selector(input_selector, timeout=10000)
+            
+            if input_element:
+                # 入力欄をクリアして新しいテキストを入力
+                await input_element.click()
+                await self.page.keyboard.press("Control+a")  # 全選択
+                await input_element.fill(text)
+                await asyncio.sleep(0.5)
+                return True
+            else:
+                raise Exception("入力欄が見つかりません")
+                
+        except Exception as e:
+            logger.error(f"ChatGPT: テキスト入力でエラー: {e}")
+            raise
+
+    async def _submit_message(self) -> bool:
+        """メッセージを送信"""
+        try:
+            submit_selectors = [
+                "[data-testid='send-button']",
+                "button[aria-label*='Send']",
+                "button[type='submit']",
+                ".send-button"
+            ]
+            
+            for selector in submit_selectors:
+                try:
+                    button = await self.page.wait_for_selector(selector, timeout=3000)
+                    if button:
+                        await button.click()
+                        await asyncio.sleep(1)
+                        return True
+                except PlaywrightTimeoutError:
+                    continue
+            
+            # ボタンが見つからない場合はEnterキーで送信
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(1)
+            return True
+            
+        except Exception as e:
+            logger.error(f"ChatGPT: メッセージ送信でエラー: {e}")
+            raise
+
+    async def _get_latest_response(self) -> str:
+        """最新の応答を取得"""
+        try:
+            response_selectors = [
+                "[data-message-author-role='assistant']:last-of-type",
+                ".markdown:last-of-type",
+                ".message.assistant:last-of-type",
+                ".response-message:last-of-type"
+            ]
+            
+            for selector in response_selectors:
+                try:
+                    response_element = await self.page.wait_for_selector(selector, timeout=5000)
+                    if response_element:
+                        response_text = await response_element.inner_text()
+                        if response_text and response_text.strip():
+                            return response_text.strip()
+                except PlaywrightTimeoutError:
+                    continue
+            
+            # 代替方法：ページから最後のアシスタントメッセージを探す
+            messages = await self.page.query_selector_all("[role='presentation']")
+            if messages:
+                last_message = messages[-1]
+                text = await last_message.inner_text()
+                if text and text.strip():
+                    return text.strip()
+            
+            raise Exception("応答テキストを取得できませんでした")
+            
+        except Exception as e:
+            logger.error(f"ChatGPT: 応答取得でエラー: {e}")
+            raise
+
     async def set_model(self, model_name: str) -> bool:
         """
         使用モデルを設定

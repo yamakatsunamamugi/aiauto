@@ -638,12 +638,53 @@ class MainWindow:
                     self.add_log_entry(f"📝 コピーテキスト: {task_row.copy_text[:100]}...")
                     self.add_log_entry(f"🤖 使用AI: {task_row.ai_config.ai_service.value}/{task_row.ai_config.ai_model}")
                     
-                    # AI処理（デモ版）
-                    import time
-                    time.sleep(1)  # 処理時間のシミュレーション
+                    # AI処理（実際の処理）
+                    result_text = None
+                    try:
+                        # ChromeAIExtension方式でAI処理を試行
+                        result_text = self._process_with_chrome_extension(
+                            task_row.copy_text,
+                            task_row.ai_config.ai_service.value,
+                            task_row.ai_config.ai_model
+                        )
+                    except Exception as chrome_error:
+                        self.add_log_entry(f"Chrome拡張エラー: {chrome_error}")
+                        result_text = f"エラー: Chrome拡張での処理に失敗しました"
                     
-                    # デモ結果
-                    demo_result = f"AI処理結果: {task_row.copy_text[:50]}... への応答"
+                    # Playwright AI処理（実装版）
+                    if result_text.startswith("エラー:") or result_text.startswith("Chrome拡張エラー:"):
+                        try:
+                            from src.automation.playwright_handler import PlaywrightAIHandler
+                            
+                            # Playwright処理用のタスクデータを作成
+                            playwright_task = {
+                                'text': task_row.copy_text,
+                                'ai_service': task_row.ai_config.ai_service.value,
+                                'model': task_row.ai_config.ai_model,
+                                'task_id': f"task_{task_row.row_number}"
+                            }
+                            
+                            # Playwrightで処理
+                            async def playwright_process():
+                                async with PlaywrightAIHandler() as handler:
+                                    results = await handler.process_batch_parallel([playwright_task])
+                                    return results[0] if results else None
+                            
+                            import asyncio
+                            result = asyncio.run(playwright_process())
+                            
+                            if result and result.get('success'):
+                                result_text = result.get('result', 'Playwrightで処理完了')
+                                self.add_log_entry(f"✅ Playwright処理成功")
+                            else:
+                                result_text = f"Playwrightエラー: {result.get('error', '不明なエラー')}"
+                                self.add_log_entry(f"❌ Playwright処理失敗: {result.get('error')}")
+                                
+                        except Exception as playwright_error:
+                            self.add_log_entry(f"❌ Playwright処理エラー: {playwright_error}")
+                            result_text = f"処理エラー: Chrome拡張とPlaywright両方で失敗しました"
+                    
+                    demo_result = result_text
                     
                     # 結果をシートに書き戻し
                     success = self.data_handler.update_task_result(task_row, demo_result)
