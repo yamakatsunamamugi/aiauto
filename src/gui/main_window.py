@@ -257,10 +257,10 @@ class MainWindow:
     def create_data_preview_section(self, parent, row):
         """データプレビューセクション"""
         # フレーム
-        frame = ttk.LabelFrame(parent, text="📋 データプレビュー", padding="5")
+        frame = ttk.LabelFrame(parent, text="📋 データプレビューと列ごとのAI設定", padding="5")
         frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # 列AI設定セクションのために変更
         
         # 情報表示
         info_frame = ttk.Frame(frame)
@@ -280,9 +280,12 @@ class MainWindow:
         self.task_rows_var = tk.StringVar(value="0")
         ttk.Label(info_frame, textvariable=self.task_rows_var).grid(row=0, column=5, sticky=tk.W, padx=5)
         
+        # 列ごとのAI設定セクション（プレビューの前に配置）
+        self.create_column_ai_section(frame, 1)
+        
         # プレビューテーブル
         columns = ("行", "コピー列", "コピーテキスト", "AI設定", "状態")
-        self.preview_tree = ttk.Treeview(frame, columns=columns, show="headings", height=8)
+        self.preview_tree = ttk.Treeview(frame, columns=columns, show="headings", height=5)
         
         # 列ごとのAI設定を保存
         self.column_ai_config = {}
@@ -304,15 +307,11 @@ class MainWindow:
         preview_scroll = ttk.Scrollbar(frame, orient="vertical", command=self.preview_tree.yview)
         self.preview_tree.configure(yscrollcommand=preview_scroll.set)
         
-        self.preview_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        preview_scroll.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.preview_tree.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        preview_scroll.grid(row=2, column=1, sticky=(tk.N, tk.S))
         
         # メインフレームの行の重みを設定
         parent.rowconfigure(row, weight=1)
-        
-        # AI設定ボタンを追加
-        config_btn = ttk.Button(frame, text="🤖 列ごとのAI設定", command=self.configure_column_ai)
-        config_btn.grid(row=2, column=0, pady=5)
         
     def load_sheet_info(self):
         """シート情報読込"""
@@ -410,6 +409,9 @@ class MainWindow:
         self.header_row_var.set(f"{structure.work_header_row}行目")
         self.copy_columns_var.set(str(len(structure.copy_columns)))
         self.task_rows_var.set(str(len(task_rows)))
+        
+        # 列AI設定セクションを更新
+        self.update_column_ai_section()
         
         # プレビューテーブルクリア
         for item in self.preview_tree.get_children():
@@ -727,6 +729,164 @@ class MainWindow:
         """ログクリア"""
         self.log_text.delete(1.0, tk.END)
         self.add_log_entry("🗑️ ログをクリアしました")
+        
+    def create_column_ai_section(self, parent, row):
+        """列ごとのAI設定セクション"""
+        # フレーム
+        frame = ttk.LabelFrame(parent, text="🤖 列ごとのAI設定", padding="5")
+        frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        frame.columnconfigure(0, weight=1)
+        
+        # スクロール可能なフレーム
+        canvas = tk.Canvas(frame, height=120)
+        scrollbar = ttk.Scrollbar(frame, orient="horizontal", command=canvas.xview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(xscrollcommand=scrollbar.set)
+        
+        # 列AI設定ウィジェットを保存
+        self.column_ai_widgets = {}
+        
+        # ヘッダー
+        ttk.Label(scrollable_frame, text="列", font=("", 9, "bold")).grid(row=0, column=0, padx=5, pady=2)
+        
+        # 初期メッセージ
+        self.no_columns_label = ttk.Label(scrollable_frame, text="シートを読み込むと列が表示されます", foreground="gray")
+        self.no_columns_label.grid(row=1, column=0, columnspan=5, padx=20, pady=20)
+        
+        canvas.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        self.column_ai_canvas = canvas
+        self.column_ai_scrollable_frame = scrollable_frame
+        
+    def update_column_ai_section(self):
+        """列AI設定セクションを更新"""
+        # 既存のウィジェットをクリア
+        for widget in self.column_ai_scrollable_frame.winfo_children():
+            widget.destroy()
+            
+        if not self.current_sheet_structure or not self.current_sheet_structure.copy_columns:
+            # 列がない場合のメッセージ
+            ttk.Label(self.column_ai_scrollable_frame, text="コピー列が見つかりません", foreground="gray").grid(
+                row=0, column=0, padx=20, pady=20
+            )
+            return
+            
+        # ヘッダー行
+        ttk.Label(self.column_ai_scrollable_frame, text="列", font=("", 9, "bold")).grid(row=0, column=0, padx=5, pady=2, sticky=tk.W)
+        ttk.Label(self.column_ai_scrollable_frame, text="AIサービス", font=("", 9, "bold")).grid(row=1, column=0, padx=5, pady=2, sticky=tk.W)
+        ttk.Label(self.column_ai_scrollable_frame, text="モデル", font=("", 9, "bold")).grid(row=2, column=0, padx=5, pady=2, sticky=tk.W)
+        
+        # 各列の設定
+        self.column_ai_widgets = {}
+        col_idx = 1
+        
+        for col_info in self.current_sheet_structure.copy_columns:
+            col_letter = col_info.column_letter
+            
+            # 列名
+            ttk.Label(self.column_ai_scrollable_frame, text=col_letter, font=("", 10, "bold")).grid(
+                row=0, column=col_idx, padx=5, pady=2
+            )
+            
+            # AIサービス選択
+            service_var = tk.StringVar(value=self.column_ai_config.get(col_letter, {}).get("ai_service", "chatgpt"))
+            service_combo = ttk.Combobox(
+                self.column_ai_scrollable_frame,
+                textvariable=service_var,
+                values=["chatgpt", "claude", "gemini", "genspark", "google_ai_studio"],
+                state="readonly",
+                width=15
+            )
+            service_combo.grid(row=1, column=col_idx, padx=5, pady=2)
+            
+            # モデル選択
+            model_var = tk.StringVar(value=self.column_ai_config.get(col_letter, {}).get("ai_model", ""))
+            model_combo = ttk.Combobox(
+                self.column_ai_scrollable_frame,
+                textvariable=model_var,
+                state="readonly",
+                width=15
+            )
+            model_combo.grid(row=2, column=col_idx, padx=5, pady=2)
+            
+            # ウィジェット保存
+            self.column_ai_widgets[col_letter] = {
+                "service_var": service_var,
+                "model_var": model_var,
+                "service_combo": service_combo,
+                "model_combo": model_combo
+            }
+            
+            # サービス変更時のイベント
+            service_combo.bind("<<ComboboxSelected>>", 
+                             lambda e, c=col_letter: self._on_column_service_changed(c))
+            
+            # モデル変更時のイベント
+            model_combo.bind("<<ComboboxSelected>>",
+                           lambda e, c=col_letter: self._on_column_model_changed(c))
+            
+            # 初期モデルリスト更新
+            self._update_column_model_options(col_letter)
+            
+            col_idx += 1
+            
+    def _on_column_service_changed(self, column):
+        """列のサービス変更時"""
+        self._update_column_model_options(column)
+        self._save_column_ai_config(column)
+        
+    def _on_column_model_changed(self, column):
+        """列のモデル変更時"""
+        self._save_column_ai_config(column)
+        
+    def _update_column_model_options(self, column):
+        """列のモデルオプション更新"""
+        widgets = self.column_ai_widgets.get(column)
+        if not widgets:
+            return
+            
+        service = widgets["service_var"].get()
+        
+        # 最新情報があれば使用、なければデフォルト
+        try:
+            updater = AIModelUpdater()
+            cached_info = updater.get_cached_info()
+            
+            if "ai_services" in cached_info and service in cached_info["ai_services"]:
+                service_info = cached_info["ai_services"][service]
+                if "models" in service_info and service_info["models"]:
+                    models = service_info["models"]
+                else:
+                    models = self._get_default_models(service)
+            else:
+                models = self._get_default_models(service)
+                
+        except Exception:
+            models = self._get_default_models(service)
+            
+        widgets["model_combo"]["values"] = models
+        if models and not widgets["model_var"].get():
+            widgets["model_var"].set(models[0])
+            
+    def _save_column_ai_config(self, column):
+        """列のAI設定を保存"""
+        widgets = self.column_ai_widgets.get(column)
+        if widgets:
+            self.column_ai_config[column] = {
+                "ai_service": widgets["service_var"].get(),
+                "ai_model": widgets["model_var"].get()
+            }
+            # プレビューを更新
+            if self.current_sheet_structure and self.current_task_rows:
+                self._update_preview_display(self.current_sheet_structure, self.current_task_rows)
         
     def configure_column_ai(self):
         """列ごとのAI設定"""

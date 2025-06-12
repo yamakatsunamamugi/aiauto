@@ -1,0 +1,289 @@
+{
+  "last_updated": "2025-01-12",
+  "ai_services": {
+    "chatgpt": {
+      "models": [
+        "gpt-4.1",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo",
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-instruct"
+      ],
+      "settings": {
+        "temperature": {
+          "min": 0,
+          "max": 2,
+          "default": 0.7
+        },
+        "max_tokens": {
+          "min": 1,
+          "max": 32768,
+          "default": 4096
+        },
+        "top_p": {
+          "min": 0,
+          "max": 1,
+          "default": 1
+        },
+        "frequency_penalty": {
+          "min": -2,
+          "max": 2,
+          "default": 0
+        },
+        "presence_penalty": {
+          "min": -2,
+          "max": 2,
+          "default": 0
+        }
+      },
+      "features": [
+        "vision",
+        "code_interpreter",
+        "web_search",
+        "dalle",
+        "1M_token_context",
+        "json_mode",
+        "parallel_function_calling"
+      ],
+      "model_details": {
+        "gpt-4.1": {
+          "context_window": 1000000,
+          "output_tokens": 32768,
+          "knowledge_cutoff": "June 2024"
+        },
+        "gpt-4o": {
+          "context_window": 128000,
+          "multimodal": true
+        },
+        "gpt-4o-mini": {
+          "context_window": 128000,
+          "cost_optimized": true
+        },
+        "gpt-4-turbo": {
+          "context_window": 128000,
+          "knowledge_cutoff": "April 2023"
+        },
+        "gpt-3.5-turbo": {
+          "context_window": 16000
+        }
+      }
+    },
+    "claude": {
+      "models": [
+        "claude-opus-4",
+        "claude-sonnet-4",
+        "claude-sonnet-3.7",
+        "claude-sonnet-3.5",
+        "claude-haiku-3.5",
+        "claude-opus-3",
+        "claude-haiku-3"
+      ],
+      "settings": {
+        "temperature": {
+          "min": 0,
+          "max": 1,
+          "default": 0.7
+        },
+        "max_tokens": {
+          "min": 1,
+          "max": 200000,
+          "default": 4096
+        }
+      },
+      "features": [
+        "vision",
+        "artifacts",
+        "projects",
+        "200k_context",
+        "superior_reasoning",
+        "extended_thinking"
+      ],
+      "model_details": {
+        "claude-opus-4": {
+          "context_window": 200000,
+          "capabilities": "Most capable and intelligent model"
+        },
+        "claude-sonnet-4": {
+          "context_window": 200000,
+          "capabilities": "High-performance with exceptional reasoning"
+        },
+        "claude-sonnet-3.7": {
+          "context_window": 200000,
+          "capabilities": "Early extended thinking"
+        },
+        "claude-haiku-3.5": {
+          "context_window": 200000,
+          "capabilities": "Fastest model, intelligence at high speed"
+        }
+      }
+    },
+    "gemini": {
+      "models": [
+        "gemini-2.5-flash-preview-05-20",
+        "gemini-2.5-flash-preview-native-audio-dialog",
+        "gemini-2.5-flash-preview-tts",
+        "gemini-2.5-pro-preview-06-05",
+        "gemini-2.5-pro-preview-tts",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-lite",
+        "gemini-2.0-flash-live-001",
+        "gemini-1.5-flash"
+      ],
+      "settings": {
+        "temperature": {
+          "min": 0,
+          "max": 2,
+          "default": 0.9
+        },
+        "max_output_tokens": {
+          "min": 1,
+          "max": 8192,
+          "default": 2048
+        },
+        "top_p": {
+          "min": 0,
+          "max": 1,
+          "default": 0.95
+        },
+        "top_k": {
+          "min": 1,
+          "max": 40,
+          "default": 40
+        }
+      },
+      "features": [
+        "vision",
+        "multimodal",
+        "code_execution",
+        "audio_input",
+        "audio_output",
+        "video_input",
+        "image_generation",
+        "text_to_speech",
+        "1M_token_context",
+        "adaptive_thinking"
+      ],
+      "model_details": {
+        "gemini-2.5-flash-preview-05-20": {
+          "inputs": ["audio", "images", "video", "text"],
+          "outputs": ["text"],
+          "special_features": ["adaptive_thinking", "cost_efficiency"]
+        },
+        "gemini-2.5-flash-preview-native-audio-dialog": {
+          "inputs": ["audio", "video", "text"],
+          "outputs": ["audio", "text"],
+          "special_features": ["interactive_conversational"]
+        },
+        "gemini-2.5-flash-preview-tts": {
+          "inputs": ["text"],
+          "outputs": ["audio"],
+          "special_features": ["high_control_tts"]
+        },
+        "gemini-2.0-flash": {
+          "context_window": 1000000,
+          "special_features": ["next_gen_capabilities"]
+        },
+        "gemini-2.0-flash-preview-image-generation": {
+          "inputs": ["audio", "images", "video", "text"],
+          "outputs": ["text", "images"],
+          "special_features": ["conversational_image_generation"]
+        }
+      }
+    },
+    "genspark": {
+      "models": [
+        "Super Agent"
+      ],
+      "settings": {
+        "task_type": {
+          "options": ["research", "content_creation", "travel_planning", "phone_calls"],
+          "default": "research"
+        },
+        "output_format": {
+          "options": ["text", "sparkpage", "structured_data"],
+          "default": "sparkpage"
+        },
+        "transparency_mode": {
+          "options": ["enabled", "disabled"],
+          "default": "enabled"
+        }
+      },
+      "features": [
+        "research",
+        "citations",
+        "sparkpages",
+        "multi_llm_orchestration",
+        "80_plus_tools",
+        "phone_calling",
+        "travel_planning",
+        "content_generation",
+        "api_centric_design"
+      ],
+      "model_details": {
+        "Super Agent": {
+          "llm_count": 9,
+          "tool_count": 80,
+          "capabilities": "Mixture-of-Agents system with dynamic LLM selection"
+        }
+      },
+      "notes": "Genspark uses multiple LLMs dynamically selected based on the task, rather than exposing specific model names to users"
+    },
+    "google_ai_studio": {
+      "models": [
+        "gemini-1.5-pro-experimental",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite-preview",
+        "gemini-2.0-pro-experimental"
+      ],
+      "settings": {
+        "temperature": {
+          "min": 0,
+          "max": 2,
+          "default": 0.9
+        },
+        "max_output_tokens": {
+          "min": 1,
+          "max": 8192,
+          "default": 2048
+        },
+        "top_p": {
+          "min": 0,
+          "max": 1,
+          "default": 0.95
+        },
+        "top_k": {
+          "min": 1,
+          "max": 40,
+          "default": 40
+        },
+        "safety_settings": {
+          "categories": ["harassment", "hate_speech", "sexually_explicit", "dangerous_content"],
+          "levels": ["block_none", "block_few", "block_some", "block_most"]
+        }
+      },
+      "features": [
+        "vision",
+        "multimodal",
+        "code_execution",
+        "2M_token_context",
+        "audio_understanding",
+        "video_understanding"
+      ],
+      "model_details": {
+        "gemini-1.5-pro-experimental": {
+          "context_window": 2000000,
+          "inputs": ["text", "images", "video", "audio"],
+          "outputs": ["text"]
+        },
+        "gemini-2.0-pro-experimental": {
+          "capabilities": "Pro version with experimental features"
+        },
+        "gemini-2.0-flash-lite-preview": {
+          "capabilities": "Lightweight version for fast processing"
+        }
+      }
+    }
+  }
+}
