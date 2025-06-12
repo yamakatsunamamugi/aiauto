@@ -77,8 +77,22 @@ class ExtensionBridge:
                 raise ValueError(f"未対応のAIサービス: {ai_service}")
 
             # Chrome拡張機能の存在確認
+            extension_status = self.check_extension_status()
+            self.logger.info(f"拡張機能ステータス: {extension_status['status']} - {extension_status['message']}")
+            
+            if extension_status['status'] in ['missing', 'invalid']:
+                self.logger.warning("Chrome拡張機能が利用できないため、モック応答を使用します")
+                return self._generate_mock_response(ai_service, text, model)
+            
             if not self._check_chrome_extension():
-                return self._launch_chrome_with_extension(ai_service, text, model)
+                self.logger.info("Chrome拡張機能が検出されないため、起動を試みます")
+                # 拡張機能が存在する場合のみChrome起動を試みる
+                if extension_status['status'] == 'ready':
+                    return self._launch_chrome_with_extension(ai_service, text, model)
+                else:
+                    return self._generate_mock_response(ai_service, text, model)
+            else:
+                self.logger.info("Chrome拡張機能は既に起動しています")
 
             # リクエストID生成
             request_id = f"{ai_service}_{int(time.time())}_{hash(text) % 10000}"

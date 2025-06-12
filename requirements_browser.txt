@@ -1,0 +1,22 @@
+# ブラウザ自動化版の追加要件
+
+# Playwright - ブラウザ自動化の中核
+playwright>=1.40.0
+
+# 既存の要件（gui_automation_app_fixed.py用）
+google-auth>=2.16.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+google-api-python-client>=2.70.0
+
+# GUI関連
+tkinter  # 通常はPythonに含まれている
+
+# オプション（Chrome拡張機能モード用）
+selenium>=4.0.0
+psutil>=5.9.0
+
+# 開発・デバッグ用
+pytest>=7.0.0
+black>=22.0.0
+flake8>=5.0.0

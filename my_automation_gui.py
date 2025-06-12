@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 """
-CLAUDE.md要件完全対応 - スプレッドシート自動化GUIアプリケーション
-詳細な初心者向け解説付き
-
-要件：
-1. 5行目のA列「作業指示行」から作業指示行特定
-2. 複数「コピー」列の検索と個別AI設定
-3. 各AIの最新モデル選択とDeepThink等設定
-4. 処理列(コピー-2)、エラー列(コピー-1)、貼り付け列(コピー+1)
-5. A列連番処理とChrome拡張機能統合
+個人用スプレッドシート自動化GUIアプリケーション
+gui_automation_app_fixed.pyと同じ機能を持つ個人用バージョン
 """
 
 import sys
@@ -31,8 +24,8 @@ class SpreadsheetAutomationGUI:
     def __init__(self, root):
         """GUI初期化"""
         self.root = root
-        self.root.title("スプレッドシート自動化システム - CLAUDE.md完全対応版")
-        self.root.geometry("1400x1000")
+        self.root.title("スプレッドシート自動化システム - 個人用")
+        self.root.geometry("1600x1200")
         
         # データ格納
         self.spreadsheet_url = ""
@@ -42,33 +35,30 @@ class SpreadsheetAutomationGUI:
         self.copy_columns = []  # 複数のコピー列情報
         self.column_configs = {}  # 各列の設定
         
-        # デバッグモード（詳細ログ出力）
-        self.debug_mode = True
-        
         # APIクライアント
         self.sheets_client = None
         self.extension_bridge = None
         
-        # AI設定データ
+        # AI設定データ（最新モデルに更新）
         self.available_ais = {
             "ChatGPT": {
-                "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+                "models": ["o1-preview", "o1-mini", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
                 "settings": ["DeepThink", "Web検索", "画像認識", "コード実行", "画像生成"]
             },
             "Claude": {
-                "models": ["claude-3.5-sonnet", "claude-3-opus", "claude-3-haiku"],
+                "models": ["claude-3.5-sonnet", "claude-3.5-haiku", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
                 "settings": ["DeepThink", "画像認識", "アーティファクト", "プロジェクト"]
             },
             "Gemini": {
-                "models": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"],
-                "settings": ["DeepThink", "画像認識", "マルチモーダル", "コード実行"]
+                "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"],
+                "settings": ["DeepThink", "画像認識", "動画分析", "マルチモーダル", "コード実行"]
             },
             "Genspark": {
-                "models": ["default"],
-                "settings": ["リサーチ", "引用", "最新情報"]
+                "models": ["genspark-pro", "genspark-standard"],
+                "settings": ["Deep Research", "引用付き回答", "リアルタイム検索"]
             },
             "Google AI Studio": {
-                "models": ["gemini-1.5-pro", "gemini-1.5-flash"],
+                "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
                 "settings": ["DeepThink", "画像認識", "マルチモーダル", "コード実行"]
             }
         }
@@ -110,35 +100,17 @@ class SpreadsheetAutomationGUI:
         columns_frame = ttk.LabelFrame(main_frame, text="🤖 各コピー列のAI設定", padding="10")
         columns_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
-        # スクロール可能なフレーム（高さを調整 - 2/3程度に）
-        canvas = tk.Canvas(columns_frame, height=350, bg='white')
+        # スクロール可能なフレーム（高さを大幅に拡張）
+        canvas = tk.Canvas(columns_frame, height=500)
         scrollbar = ttk.Scrollbar(columns_frame, orient="vertical", command=canvas.yview)
         self.scrollable_frame = ttk.Frame(canvas)
         
-        # スクロール可能なウィンドウを作成
-        self.canvas_window = canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         
-        # フレームサイズ変更時にスクロール領域を更新
-        def configure_scroll_region(event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            # キャンバスの幅に合わせてフレームの幅を設定
-            canvas.itemconfig(self.canvas_window, width=canvas.winfo_width())
-        
-        self.scrollable_frame.bind("<Configure>", configure_scroll_region)
-        
-        # マウスホイールでスクロール（macOS/Windows対応）
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        # プラットフォーム別のマウスホイールイベント
-        import platform
-        if platform.system() == 'Darwin':  # macOS
-            canvas.bind("<MouseWheel>", on_mousewheel)
-        else:  # Windows/Linux
-            canvas.bind("<MouseWheel>", on_mousewheel)
-            canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-            canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
-        
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
         canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -169,7 +141,7 @@ class SpreadsheetAutomationGUI:
         log_frame = ttk.LabelFrame(main_frame, text="📝 実行ログ", padding="10")
         log_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
-        self.log_text = tk.Text(log_frame, height=20, width=100)
+        self.log_text = tk.Text(log_frame, height=20, width=120)
         log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_scrollbar.set)
         
@@ -191,17 +163,20 @@ class SpreadsheetAutomationGUI:
             from src.sheets.sheets_client import SheetsClient
             self.sheets_client = SheetsClient()
             
-            # ExtensionBridgeをインポートして初期化
+            # 既存のPlaywright AIハンドラーを使用
             try:
-                from src.automation.extension_bridge import ExtensionBridge
-                self.extension_bridge = ExtensionBridge()
-            except ImportError:
-                # フォールバック用ダミークラス
-                class DummyExtensionBridge:
-                    def process_with_extension(self, **kwargs):
-                        return {"success": True, "result": "テスト応答"}
-                self.extension_bridge = DummyExtensionBridge()
-                self.log("⚠️ ExtensionBridgeが見つかりません。ダミークラスを使用します")
+                from src.automation.advanced_ai_processor import AdvancedAIProcessor
+                self.ai_processor = AdvancedAIProcessor()
+                self.log("✅ AI処理システムを初期化しました（Playwright使用）")
+            except ImportError as e:
+                self.log(f"❌ AI処理システムの初期化失敗: {e}")
+                # ExtensionBridgeを直接使用
+                try:
+                    from src.automation.extension_bridge import ExtensionBridge
+                    self.extension_bridge = ExtensionBridge()
+                    self.log("✅ ExtensionBridgeを初期化しました")
+                except ImportError:
+                    self.log("❌ ExtensionBridgeも利用できません")
             
             self.log("✅ APIクライアント初期化完了")
         except Exception as e:
@@ -210,10 +185,7 @@ class SpreadsheetAutomationGUI:
     
     def load_from_url(self):
         """URLからスプレッドシート読み込み"""
-        # URLの前処理（改行・スペースを除去）
         url = self.url_entry.get().strip()
-        url = url.replace('\n', '').replace('\r', '').replace(' ', '')
-        
         if not url:
             messagebox.showerror("エラー", "スプレッドシートURLを入力してください")
             return
@@ -224,8 +196,6 @@ class SpreadsheetAutomationGUI:
             # URLからスプレッドシートID抽出
             if '/spreadsheets/d/' in url:
                 sheet_id = url.split('/spreadsheets/d/')[1].split('/')[0]
-                # IDからも改行・スペースを除去
-                sheet_id = sheet_id.strip().replace('\n', '').replace('\r', '').replace(' ', '')
                 self.log(f"📊 抽出されたスプレッドシートID: {sheet_id}")
             else:
                 error_msg = "無効なスプレッドシートURLです"
@@ -366,9 +336,6 @@ class SpreadsheetAutomationGUI:
             widget.destroy()
         
         self.column_configs = {}
-        
-        # スクロール可能フレームの幅を設定
-        self.scrollable_frame.configure(width=1200)
         
         for i, col_info in enumerate(self.copy_columns):
             # 列フレーム（パディングとマージンを拡張）
@@ -572,55 +539,23 @@ class SpreadsheetAutomationGUI:
     
     def start_automation(self):
         """自動化処理開始"""
-        self.log("🚀 自動化開始ボタンがクリックされました")
-        
-        # 必要な情報の確認
-        if not self.copy_columns:
-            error_msg = "コピー列が検出されていません。シート情報を読み込んでください"
-            self.log(f"❌ {error_msg}")
-            messagebox.showerror("エラー", error_msg)
+        if not self.copy_columns or not self.column_configs:
+            messagebox.showerror("エラー", "まずシート情報を読み込んで列設定を行ってください")
             return
-            
-        if not self.column_configs:
-            error_msg = "列設定が完了していません。シート情報を読み込んでください"
-            self.log(f"❌ {error_msg}")
-            messagebox.showerror("エラー", error_msg)
-            return
-        
-        self.log(f"✅ 検証OK: {len(self.copy_columns)}個のコピー列, {len(self.column_configs)}個の設定")
         
         # 別スレッドで実行
-        try:
-            self.automation_thread = threading.Thread(target=self.run_automation)
-            self.automation_thread.daemon = True
-            self.automation_thread.start()
-            self.log("✅ 自動化処理スレッドを開始しました")
-        except Exception as e:
-            error_msg = f"スレッド開始エラー: {e}"
-            self.log(f"❌ {error_msg}")
-            messagebox.showerror("エラー", error_msg)
+        self.automation_thread = threading.Thread(target=self.run_automation)
+        self.automation_thread.daemon = True
+        self.automation_thread.start()
     
     def run_automation(self):
         """自動化処理実行（メインロジック）"""
-        self.log("🔄 自動化処理実行スレッド開始")
         try:
             self.update_status("自動化処理開始...")
-            
-            # スプレッドシートIDの抽出
-            try:
-                sheet_id = self.spreadsheet_url.split('/spreadsheets/d/')[1].split('/')[0]
-                sheet_id = sheet_id.strip().replace('\n', '').replace('\r', '').replace(' ', '')
-                self.log(f"📊 処理対象スプレッドシートID: {sheet_id}")
-            except Exception as e:
-                error_msg = f"スプレッドシートID抽出エラー: {e}"
-                self.log(f"❌ {error_msg}")
-                self.update_status(f"エラー: {error_msg}")
-                return
+            sheet_id = self.spreadsheet_url.split('/spreadsheets/d/')[1].split('/')[0]
             
             total_tasks = 0
             completed_tasks = 0
-            
-            self.log(f"📋 処理対象: {len(self.column_configs)}個のコピー列")
             
             # 各コピー列を処理
             for col_idx, col_config in self.column_configs.items():
@@ -674,21 +609,46 @@ class SpreadsheetAutomationGUI:
                     total_tasks += 1
                     
                     self.log(f"    行{row_idx + 1}: {copy_text[:50]}...")
+                    self.log(f"      📊 処理詳細:")
+                    self.log(f"        - コピー列: {col_info['copy_letter']} (index: {col_info['copy_col']})")
+                    self.log(f"        - 処理列: {col_info['process_letter']} (index: {col_info['process_col']})")
+                    self.log(f"        - エラー列: {col_info['error_letter']} (index: {col_info['error_col']})")
+                    self.log(f"        - 貼付列: {col_info['paste_letter']} (index: {col_info['paste_col']})")
+                    self.log(f"        - テキスト長: {len(copy_text)}文字")
                     
                     try:
                         # AI処理実行
-                        result = self.extension_bridge.process_with_extension(
-                            text=copy_text,
-                            ai_service=ai_service.replace('_', ''),
-                            model=model
-                        )
+                        self.log(f"      🤖 {ai_service}で処理開始...")
+                        self.log(f"        - モデル: {model}")
+                        self.log(f"        - 設定: {settings}")
+                        
+                        # ExtensionBridgeを使用（複数AI対応）
+                        if hasattr(self, 'extension_bridge'):
+                            self.log(f"      📡 ExtensionBridge経由で処理")
+                            result = self.extension_bridge.process_with_extension(
+                                text=copy_text,
+                                ai_service=ai_service.replace('_', ''),
+                                model=model
+                            )
+                        elif hasattr(self, 'ai_processor'):
+                            self.log(f"      📡 AdvancedAIProcessor経由で処理")
+                            # AdvancedAIProcessorのbridgeを使用
+                            result = self.ai_processor.bridge.process_with_extension(
+                                text=copy_text,
+                                ai_service=ai_service.replace('_', ''),
+                                model=model
+                            )
+                        else:
+                            self.log(f"      ❌ AI処理システムが見つかりません")
+                            result = {
+                                "success": False,
+                                "error": "AI処理システムが初期化されていません"
+                            }
+                        
+                        self.log(f"      📥 処理結果: success={result.get('success', False)}")
                         
                         if result['success']:
                             response_text = result['result']
-                            
-                            # モック応答の場合は警告
-                            if result.get('mock', False):
-                                self.log(f"      ⚠️ モック応答使用（Chrome拡張機能利用不可）")
                             
                             # カスタムプロンプトがあれば追加
                             if advanced_settings.get('custom_prompt'):
@@ -706,15 +666,32 @@ class SpreadsheetAutomationGUI:
                             self.log(f"      ✅ 成功")
                         else:
                             # エラー記録
+                            error_msg = result.get('error', '不明なエラー')
+                            self.log(f"      ❌ 処理失敗:")
+                            self.log(f"        - エラー内容: {error_msg}")
+                            self.log(f"        - AI: {result.get('ai_service', 'N/A')}")
+                            self.log(f"        - モデル: {result.get('model', 'N/A')}")
+                            self.log(f"        - 処理時間: {result.get('processing_time', 'N/A')}秒")
+                            
                             error_range = f"{self.sheet_name}!{col_info['error_letter']}{row_idx + 1}"
-                            self.sheets_client.write_range(sheet_id, error_range, [[result['error']]])
-                            self.log(f"      ❌ 失敗: {result['error']}")
+                            self.sheets_client.write_range(sheet_id, error_range, [[error_msg]])
                     
                     except Exception as e:
-                        # エラー記録
+                        # 詳細なエラー記録
+                        self.log(f"      ❌ 例外発生:")
+                        self.log(f"        - エラー型: {type(e).__name__}")
+                        self.log(f"        - エラー内容: {str(e)}")
+                        
+                        # スタックトレース
+                        import traceback
+                        tb = traceback.format_exc()
+                        self.log(f"      📋 スタックトレース:")
+                        for line in tb.split('\n'):
+                            if line.strip():
+                                self.log(f"        {line}")
+                        
                         error_range = f"{self.sheet_name}!{col_info['error_letter']}{row_idx + 1}"
-                        self.sheets_client.write_range(sheet_id, error_range, [[str(e)]])
-                        self.log(f"      ❌ エラー: {e}")
+                        self.sheets_client.write_range(sheet_id, error_range, [[f"{type(e).__name__}: {str(e)}"]])
                     
                     # 進捗更新
                     if total_tasks > 0:
@@ -734,11 +711,7 @@ class SpreadsheetAutomationGUI:
                 self.log(f"成功率: {success_rate:.1f}%")
             
         except Exception as e:
-            error_msg = f"自動化処理エラー: {e}"
-            self.log(f"❌ {error_msg}")
-            self.log(f"📝 エラー詳細: {type(e).__name__}")
-            import traceback
-            self.log(f"📋 スタックトレース:\n{traceback.format_exc()}")
+            self.log(f"❌ 自動化処理エラー: {e}")
             self.update_status(f"エラー: {e}")
     
     def stop_automation(self):
@@ -751,38 +724,25 @@ class SpreadsheetAutomationGUI:
         """ステータス更新（UIスレッドセーフ）"""
         self.root.after(0, lambda: self.status_label.config(text=message))
     
-    def log(self, message, level="INFO"):
+    def log(self, message):
         """ログ出力（UIスレッドセーフ）"""
         timestamp = time.strftime("%H:%M:%S")
-        
-        # デバッグモードの場合、より詳細な情報を出力
-        if self.debug_mode and level == "DEBUG":
-            import inspect
-            frame = inspect.currentframe().f_back
-            func_name = frame.f_code.co_name
-            line_no = frame.f_lineno
-            message = f"[{func_name}:{line_no}] {message}"
-        
         log_message = f"[{timestamp}] {message}\n"
         
         def update_log():
             self.log_text.insert(tk.END, log_message)
             self.log_text.see(tk.END)
-            # 重要なエラーは赤色で表示
-            if "❌" in message or "エラー" in message:
-                self.log_text.tag_add("error", f"end-2l", "end-1l")
-                self.log_text.tag_config("error", foreground="red")
         
         self.root.after(0, update_log)
 
 def main():
     """メイン実行関数"""
-    print("🎯 CLAUDE.md要件完全対応 - スプレッドシート自動化GUIアプリ")
+    print("🎯 個人用スプレッドシート自動化GUIアプリ")
     print("="*60)
     print("📋 主要機能:")
     print("  ✅ 5行目作業指示行の自動検出")
     print("  ✅ 複数コピー列の個別AI設定")
-    print("  ✅ 各AIの最新モデル選択")
+    print("  ✅ 最新AIモデル選択（o1-preview、Claude 3.5 Sonnet、Gemini 2.0 Flash等）")
     print("  ✅ DeepThink等詳細設定")
     print("  ✅ Chrome拡張機能統合")
     print("  ✅ 設定保存・読込機能")
