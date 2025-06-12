@@ -60,12 +60,18 @@ class AIAutomationPopup {
     detectSiteFromUrl(url) {
         if (!url) return '不明';
         
-        if (url.includes('openai.com')) return 'ChatGPT';
+        console.log('AI自動化 ポップアップ: URL検出中', url);
+        
+        if (url.includes('openai.com') || url.includes('chatgpt.com')) {
+            console.log('AI自動化 ポップアップ: ChatGPTを検出');
+            return 'ChatGPT';
+        }
         if (url.includes('claude.ai')) return 'Claude';
         if (url.includes('gemini.google.com')) return 'Gemini';
         if (url.includes('genspark.ai')) return 'Genspark';
         if (url.includes('aistudio.google.com')) return 'Google AI Studio';
         
+        console.log('AI自動化 ポップアップ: 未対応サイト', url);
         return 'その他';
     }
 
