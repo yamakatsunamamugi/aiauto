@@ -1,0 +1,52 @@
+{
+  "chatgpt": {
+    "models": [
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-4-turbo",
+      "gpt-4",
+      "gpt-3.5-turbo"
+    ],
+    "last_updated": "2025-01-12T10:00:00.000000",
+    "source": "manual"
+  },
+  "claude": {
+    "models": [
+      "claude-3.5-sonnet",
+      "claude-3-opus",
+      "claude-3-sonnet",
+      "claude-3-haiku"
+    ],
+    "last_updated": "2025-01-12T10:00:00.000000",
+    "source": "manual"
+  },
+  "gemini": {
+    "models": [
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-pro",
+      "gemini-pro-vision"
+    ],
+    "last_updated": "2025-01-12T10:00:00.000000",
+    "source": "manual"
+  },
+  "genspark": {
+    "models": [
+      "default",
+      "research",
+      "advanced"
+    ],
+    "last_updated": "2025-01-12T10:00:00.000000",
+    "source": "manual"
+  },
+  "google_ai_studio": {
+    "models": [
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-pro",
+      "palm-2"
+    ],
+    "last_updated": "2025-01-12T10:00:00.000000",
+    "source": "manual"
+  }
+}
