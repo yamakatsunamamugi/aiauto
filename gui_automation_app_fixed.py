@@ -32,7 +32,7 @@ class SpreadsheetAutomationGUI:
         """GUI初期化"""
         self.root = root
         self.root.title("スプレッドシート自動化システム - CLAUDE.md完全対応版")
-        self.root.geometry("1000x800")
+        self.root.geometry("1200x900")
         
         # データ格納
         self.spreadsheet_url = ""
@@ -107,8 +107,8 @@ class SpreadsheetAutomationGUI:
         columns_frame = ttk.LabelFrame(main_frame, text="🤖 各コピー列のAI設定", padding="10")
         columns_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
-        # スクロール可能なフレーム
-        canvas = tk.Canvas(columns_frame, height=200)
+        # スクロール可能なフレーム（高さを大幅に拡張）
+        canvas = tk.Canvas(columns_frame, height=400)
         scrollbar = ttk.Scrollbar(columns_frame, orient="vertical", command=canvas.yview)
         self.scrollable_frame = ttk.Frame(canvas)
         
@@ -122,6 +122,11 @@ class SpreadsheetAutomationGUI:
         
         canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        # グリッド設定で拡張可能にする
+        columns_frame.columnconfigure(0, weight=1)
+        columns_frame.rowconfigure(0, weight=1)
+        self.scrollable_frame.columnconfigure(0, weight=1)
         
         # 4. 実行制御セクション
         control_frame = ttk.LabelFrame(main_frame, text="🚀 実行制御", padding="10")
@@ -267,9 +272,9 @@ class SpreadsheetAutomationGUI:
                 messagebox.showerror("エラー", "シートデータが見つかりません")
                 return
             
-            # 作業指示行を検索（CLAUDE.md要件：5行目周辺を検索）
+            # 作業指示行を検索（CLAUDE.md要件：4-10行目を検索）
             self.work_row = None
-            for i in range(4, min(10, len(self.sheet_data))):  # 5-10行目を検索
+            for i in range(3, min(10, len(self.sheet_data))):  # 4-10行目を検索（0ベースなので3から）
                 if (len(self.sheet_data[i]) > 0 and 
                     '作業指示行' in str(self.sheet_data[i][0])):
                     self.work_row = i
@@ -345,16 +350,20 @@ class SpreadsheetAutomationGUI:
             )
             col_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=5, padx=10)
             
+            # グリッド設定でフレームを拡張可能にする
+            col_frame.columnconfigure(1, weight=1)
+            col_frame.columnconfigure(3, weight=2)
+            
             # AI選択
             ttk.Label(col_frame, text="AI:").grid(row=0, column=0, sticky=tk.W)
-            ai_combo = ttk.Combobox(col_frame, values=list(self.available_ais.keys()), width=15, state="readonly")
+            ai_combo = ttk.Combobox(col_frame, values=list(self.available_ais.keys()), width=18, state="readonly")
             ai_combo.set("ChatGPT")  # デフォルト
-            ai_combo.grid(row=0, column=1, padx=5)
+            ai_combo.grid(row=0, column=1, padx=5, sticky=(tk.W, tk.E))
             
             # モデル選択
-            ttk.Label(col_frame, text="モデル:").grid(row=0, column=2, sticky=tk.W, padx=(10,0))
-            model_combo = ttk.Combobox(col_frame, width=20, state="readonly")
-            model_combo.grid(row=0, column=3, padx=5)
+            ttk.Label(col_frame, text="モデル:").grid(row=0, column=2, sticky=tk.W, padx=(15,5))
+            model_combo = ttk.Combobox(col_frame, width=25, state="readonly")
+            model_combo.grid(row=0, column=3, padx=5, sticky=(tk.W, tk.E))
             
             # 設定選択
             ttk.Label(col_frame, text="設定:").grid(row=1, column=0, sticky=tk.W, pady=5)
@@ -391,11 +400,11 @@ class SpreadsheetAutomationGUI:
             
             # 詳細設定ボタン
             ttk.Button(col_frame, text="詳細設定", 
-                      command=lambda idx=i: self.open_advanced_settings(idx)).grid(row=0, column=4, padx=10)
+                      command=lambda idx=i: self.open_advanced_settings(idx)).grid(row=0, column=4, padx=15)
             
             # 設定状況表示
             status_label = ttk.Label(col_frame, text="未設定", foreground="red")
-            status_label.grid(row=1, column=4, padx=10)
+            status_label.grid(row=1, column=4, padx=15)
             
             # 設定を保存
             self.column_configs[i] = {
