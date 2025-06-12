@@ -5,7 +5,7 @@
 AI自動化システム用Chrome拡張機能のセットアップと使用方法について説明します。
 
 この拡張機能は以下の5つのAIサービスに対応しています：
-- **ChatGPT** (chat.openai.com)
+- **ChatGPT** (chatgpt.com)
 - **Claude** (claude.ai)
 - **Gemini** (gemini.google.com)
 - **Genspark** (www.genspark.ai)
@@ -58,7 +58,7 @@ AI自動化システム用Chrome拡張機能のセットアップと使用方法
 各AIサービスで事前にログインしておく必要があります：
 
 #### 2.1 ChatGPT
-1. https://chat.openai.com にアクセス
+1. https://chatgpt.com にアクセス
 2. OpenAIアカウントでログイン
 3. ブラウザにログイン状態を保存
 

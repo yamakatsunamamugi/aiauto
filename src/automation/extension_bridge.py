@@ -40,7 +40,7 @@ class ExtensionBridge:
         # 拡張機能設定
         self.extension_id = None
         self.supported_sites = {
-            "chatgpt": "https://chat.openai.com",
+            "chatgpt": "https://chatgpt.com",
             "claude": "https://claude.ai", 
             "gemini": "https://gemini.google.com",
             "genspark": "https://www.genspark.ai",

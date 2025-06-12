@@ -9,7 +9,7 @@
     "scripting"
   ],
   "host_permissions": [
-    "*://chat.openai.com/*",
+    "*://chatgpt.com/*",
     "*://claude.ai/*",
     "*://gemini.google.com/*",
     "*://www.genspark.ai/*",
@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://chat.openai.com/*",
+        "*://chatgpt.com/*",
         "*://claude.ai/*",
         "*://gemini.google.com/*",
         "*://www.genspark.ai/*",

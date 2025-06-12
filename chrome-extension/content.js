@@ -15,7 +15,7 @@ class AIAutomationContent {
 
     detectAISite() {
         const hostname = window.location.hostname;
-        if (hostname.includes('openai.com')) return 'chatgpt';
+        if (hostname.includes('openai.com') || hostname.includes('chatgpt.com')) return 'chatgpt';
         if (hostname.includes('claude.ai')) return 'claude';
         if (hostname.includes('gemini.google.com')) return 'gemini';
         if (hostname.includes('genspark.ai')) return 'genspark';
