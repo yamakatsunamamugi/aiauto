@@ -1,0 +1,31 @@
+{
+  "method": "manual",
+  "last_updated": "2025-06-12T10:53:40.882436",
+  "results": {
+    "chatgpt": {
+      "models": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo-2024-11-20"
+      ],
+      "last_updated": "2025-06-12T10:53:40.882300",
+      "method": "manual"
+    },
+    "claude": {
+      "models": [
+        "claude-3.5-sonnet-20241022",
+        "claude-3-opus"
+      ],
+      "last_updated": "2025-06-12T10:53:40.882354",
+      "method": "manual"
+    },
+    "gemini": {
+      "models": [
+        "gemini-1.5-pro-latest",
+        "gemini-1.5-flash"
+      ],
+      "last_updated": "2025-06-12T10:53:40.882393",
+      "method": "manual"
+    }
+  }
+}

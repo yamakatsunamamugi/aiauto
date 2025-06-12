@@ -18,6 +18,7 @@ from src.sheets.data_handler import DataHandler
 from src.utils.logger import logger
 from src.gui.column_ai_config import ColumnAIConfigDialog
 from src.gui.ai_model_updater import update_models_sync, AIModelUpdater
+from src.gui.browser_session_model_fetcher import fetch_models_sync as fetch_models_browser_session
 
 
 class MainWindow:
@@ -919,10 +920,11 @@ class MainWindow:
         def update_async():
             try:
                 self.add_log_entry("🔄 AIモデル最新情報を取得中...")
+                self.add_log_entry("🌐 ブラウザセッション方式で実際のモデルリストを取得します")
                 self.update_models_btn.configure(state="disabled")
                 
-                # モデル情報を更新
-                results = update_models_sync()
+                # ブラウザセッション方式でモデル情報を取得
+                results = fetch_models_browser_session()
                 
                 # 結果を表示
                 success_count = 0
@@ -931,13 +933,15 @@ class MainWindow:
                         success_count += 1
                         models = info.get("models", [])
                         self.add_log_entry(f"✅ {service}: {len(models)}個のモデルを取得")
+                        if models:
+                            self.add_log_entry(f"   モデル: {', '.join(models[:3])}{'...' if len(models) > 3 else ''}")
                     else:
-                        self.add_log_entry(f"⚠️ {service}: 更新失敗")
+                        self.add_log_entry(f"⚠️ {service}: 更新失敗 - {info.get('error', '不明なエラー')}")
                         
                 self.add_log_entry(f"🎯 更新完了: {success_count}/5 サービス")
                 
                 # モデル選択肢を更新
-                self._update_model_options_from_latest()
+                self._update_model_options_from_browser_session(results)
                 
             except Exception as e:
                 self.add_log_entry(f"❌ 最新情報更新エラー: {e}")
@@ -945,6 +949,31 @@ class MainWindow:
                 self.update_models_btn.configure(state="normal")
                 
         threading.Thread(target=update_async, daemon=True).start()
+        
+    def _update_model_options_from_browser_session(self, results: Dict):
+        """ブラウザセッション方式の結果からモデル選択肢を更新"""
+        try:
+            # 結果をファイルに保存（永続化）
+            import json
+            with open("config/ai_models_browser_session.json", 'w', encoding='utf-8') as f:
+                json.dump({
+                    "method": "browser_session",
+                    "last_updated": datetime.now().isoformat(),
+                    "results": results
+                }, f, indent=2, ensure_ascii=False)
+            
+            # 現在のサービスのモデルリストを更新
+            current_service = self.ai_service_var.get()
+            if current_service in results and "models" in results[current_service]:
+                models = results[current_service]["models"]
+                if models:
+                    self.ai_model_combo["values"] = models
+                    # 現在の選択が無効な場合は最初のモデルを選択
+                    if self.ai_model_var.get() not in models:
+                        self.ai_model_var.set(models[0])
+                        
+        except Exception as e:
+            logger.error(f"ブラウザセッション結果の更新エラー: {e}")
         
     def _update_model_options_from_latest(self):
         """最新情報からモデル選択肢を更新"""
