@@ -85,13 +85,15 @@ class MainWindow:
         
         # スプレッドシートURL
         ttk.Label(frame, text="スプレッドシートURL:").grid(row=0, column=0, sticky=tk.W, padx=5)
-        self.sheet_url_var = tk.StringVar()
+        # テスト用URLをデフォルトで設定
+        self.sheet_url_var = tk.StringVar(value="https://docs.google.com/spreadsheets/d/1C5aOSyyCBXf7HwF-BGGu-cz5jdRwNBaoW4G4ivIRrRg/edit?gid=1633283608#gid=1633283608")
         url_entry = ttk.Entry(frame, textvariable=self.sheet_url_var, width=60)
         url_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         
         # シート名選択
         ttk.Label(frame, text="シート名:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.sheet_name_var = tk.StringVar()
+        # テスト用シート名をデフォルトで設定
+        self.sheet_name_var = tk.StringVar(value="1.原稿本文作成")
         self.sheet_name_combo = ttk.Combobox(frame, textvariable=self.sheet_name_var, state="readonly")
         self.sheet_name_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         self.sheet_name_combo.bind("<<ComboboxSelected>>", self.on_sheet_selected)
@@ -532,15 +534,26 @@ class MainWindow:
                 self.login_status_var.set("確認中...")
                 self.login_status_label.configure(foreground="orange")
                 
-                # TODO: 実際のログイン状態確認
-                # 仮の結果
-                logged_in = False
+                # 選択されているAIサービスをブラウザで開く
+                service = self.ai_service_var.get()
+                urls = {
+                    "chatgpt": "https://chat.openai.com",
+                    "claude": "https://claude.ai",
+                    "gemini": "https://gemini.google.com",
+                    "genspark": "https://www.genspark.ai",
+                    "google_ai_studio": "https://aistudio.google.com"
+                }
                 
-                if logged_in:
-                    self.login_status_var.set("ログイン済み")
-                    self.login_status_label.configure(foreground="green")
+                if service in urls:
+                    import webbrowser
+                    webbrowser.open(urls[service])
+                    self.add_log_entry(f"🌐 {service}のログインページを開きました")
+                    
+                    # ブラウザが開いたことを示す
+                    self.login_status_var.set("ブラウザで確認")
+                    self.login_status_label.configure(foreground="blue")
                 else:
-                    self.login_status_var.set("要ログイン")
+                    self.login_status_var.set("サービス不明")
                     self.login_status_label.configure(foreground="red")
                     
             except Exception as e:
@@ -717,13 +730,13 @@ class MainWindow:
         
     def configure_column_ai(self):
         """列ごとのAI設定"""
-        if not self.current_structure:
+        if not self.current_sheet_structure:
             messagebox.showwarning("警告", "まずシートをロードしてください")
             return
             
         # コピー列のリストを取得
         copy_columns = []
-        for col_info in self.current_structure.copy_columns:
+        for col_info in self.current_sheet_structure.copy_columns:
             copy_columns.append(col_info.column_letter)
             
         if not copy_columns:
@@ -738,8 +751,8 @@ class MainWindow:
             self.column_ai_config = result
             self.add_log_entry("✅ 列ごとのAI設定を更新しました")
             # プレビューを更新
-            if self.current_structure and self.current_task_rows:
-                self._update_preview_display(self.current_structure, self.current_task_rows)
+            if self.current_sheet_structure and self.current_task_rows:
+                self._update_preview_display(self.current_sheet_structure, self.current_task_rows)
                 
     def update_ai_models(self):
         """最新のAIモデル情報を更新"""
