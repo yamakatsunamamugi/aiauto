@@ -231,6 +231,13 @@ class SheetParser:
                         logger.warning(f"コピー列{col_index + 1}: エラー列が範囲外です（列{error_col + 1}）")
                         continue
                     
+                    # 最大列数チェック（スプレッドシートの列数制限を考慮）
+                    max_columns = len(headers)
+                    if result_col >= max_columns:
+                        logger.warning(f"コピー列{col_index + 1}: 結果列が範囲外です（列{result_col + 1} > 最大列数{max_columns}）")
+                        logger.warning(f"  解決策: スプレッドシートに列を追加するか、コピー列の位置を左に移動してください")
+                        continue
+                    
                     # 列文字を生成
                     col_letter = self._number_to_column_letter(col_index + 1)
                     
