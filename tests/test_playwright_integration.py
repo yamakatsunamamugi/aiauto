@@ -55,26 +55,42 @@ class TestPlaywrightAIHandler:
         """バッチ並列処理テスト"""
         handler = PlaywrightAIHandler()
         
-        # 複数タスクの設定
-        tasks = [
-            {
-                'text': 'プロンプト1',
-                'ai_service': 'chatgpt',
-                'model': 'gpt-4',
-                'task_id': 'test_1'
-            },
-            {
-                'text': 'プロンプト2',
-                'ai_service': 'claude',
-                'model': 'claude-3-sonnet',
-                'task_id': 'test_2'
-            }
-        ]
+        # モックのAIハンドラー処理
+        with patch('src.automation.browser_manager.BrowserManager'), \
+             patch('src.automation.ai_handlers.chatgpt_handler.ChatGPTHandler') as mock_chatgpt, \
+             patch('src.automation.ai_handlers.claude_handler.ClaudeHandler') as mock_claude:
+            
+            # モックの設定
+            mock_chatgpt_instance = AsyncMock()
+            mock_chatgpt_instance.login_check.return_value = True
+            mock_chatgpt_instance.process_text.return_value = 'テスト回答1'
+            mock_chatgpt.return_value = mock_chatgpt_instance
+            
+            mock_claude_instance = AsyncMock()
+            mock_claude_instance.login_check.return_value = True
+            mock_claude_instance.process_text.return_value = 'テスト回答2'
+            mock_claude.return_value = mock_claude_instance
+            
+            # 複数タスクの設定
+            tasks = [
+                {
+                    'text': 'プロンプト1',
+                    'ai_service': 'chatgpt',
+                    'model': 'gpt-4',
+                    'task_id': 'test_1'
+                },
+                {
+                    'text': 'プロンプト2',
+                    'ai_service': 'claude',
+                    'model': 'claude-3-sonnet',
+                    'task_id': 'test_2'
+                }
+            ]
 
-        results = await handler.process_batch_parallel(tasks)
+            results = await handler.process_batch_parallel(tasks)
 
-        assert len(results) == 2
-        assert all(r['success'] for r in results)
+            assert len(results) == 2
+            assert all(r['success'] for r in results)
 
     def test_statistics_tracking(self):
         """統計情報追跡テスト"""
@@ -103,22 +119,32 @@ class TestIntegrationScenarios:
         """完全自動化ワークフローテスト"""
         handler = PlaywrightAIHandler()
         
-        # テストタスク
-        tasks = [{
-            'text': 'ワークフローテスト用プロンプト',
-            'ai_service': 'chatgpt',
-            'model': 'gpt-4',
-            'task_id': 'workflow_test'
-        }]
+        # モックのAIハンドラー処理
+        with patch('src.automation.browser_manager.BrowserManager'), \
+             patch('src.automation.ai_handlers.chatgpt_handler.ChatGPTHandler') as mock_chatgpt:
+            
+            # モックの設定
+            mock_chatgpt_instance = AsyncMock()
+            mock_chatgpt_instance.login_check.return_value = True
+            mock_chatgpt_instance.process_text.return_value = 'ワークフローテスト回答'
+            mock_chatgpt.return_value = mock_chatgpt_instance
+            
+            # テストタスク
+            tasks = [{
+                'text': 'ワークフローテスト用プロンプト',
+                'ai_service': 'chatgpt',
+                'model': 'gpt-4',
+                'task_id': 'workflow_test'
+            }]
 
-        # 実行
-        results = await handler.process_batch_parallel(tasks)
+            # 実行
+            results = await handler.process_batch_parallel(tasks)
 
-        # 検証
-        assert len(results) == 1
-        assert results[0]['success'] == True
-        assert 'result' in results[0]
-        assert results[0]['processing_time'] > 0
+            # 検証
+            assert len(results) == 1
+            assert results[0]['success'] == True
+            assert 'result' in results[0]
+            assert results[0]['processing_time'] > 0
 
 
 if __name__ == '__main__':

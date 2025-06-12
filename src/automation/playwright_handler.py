@@ -151,7 +151,7 @@ class PlaywrightAIHandler:
             
             # ブラウザマネージャーでページを取得
             async with BrowserManager() as browser_manager:
-                page = await browser_manager.get_page()
+                page = await browser_manager.create_new_page()
                 
                 # AIサービス別にハンドラーを作成
                 handler = None
