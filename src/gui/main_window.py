@@ -17,6 +17,7 @@ from src.sheets.models import AIService, ColumnAIConfig
 from src.sheets.data_handler import DataHandler
 from src.utils.logger import logger
 from src.gui.column_ai_config import ColumnAIConfigDialog
+from src.gui.ai_model_updater import update_models_sync, AIModelUpdater
 
 
 class MainWindow:
@@ -131,9 +132,17 @@ class MainWindow:
         self.login_status_label = ttk.Label(frame, textvariable=self.login_status_var, foreground="orange")
         self.login_status_label.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
         
+        # ボタンフレーム
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=3, column=2, columnspan=2, padx=5, pady=5)
+        
         # ログイン確認ボタン
-        self.check_login_btn = ttk.Button(frame, text="🔐 ログイン確認", command=self.check_login_status)
-        self.check_login_btn.grid(row=3, column=2, padx=5, pady=5)
+        self.check_login_btn = ttk.Button(btn_frame, text="🔐 ログイン確認", command=self.check_login_status)
+        self.check_login_btn.pack(side=tk.LEFT, padx=2)
+        
+        # 最新情報更新ボタン
+        self.update_models_btn = ttk.Button(btn_frame, text="🔄 最新情報更新", command=self.update_ai_models)
+        self.update_models_btn.pack(side=tk.LEFT, padx=2)
         
     def create_control_section(self, parent, row):
         """制御セクション"""
@@ -447,18 +456,26 @@ class MainWindow:
         """AIサービス変更時の処理"""
         service = self.ai_service_var.get()
         
-        # モデル選択肢を更新
-        models = {
-            "chatgpt": ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
-            "claude": ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-            "gemini": ["gemini-pro", "gemini-pro-vision"],
-            "genspark": ["default"],
-            "google_ai_studio": ["gemini-pro", "gemini-pro-vision"]
-        }
+        # 最新情報があれば使用、なければデフォルト
+        try:
+            updater = AIModelUpdater()
+            cached_info = updater.get_cached_info()
+            
+            if "ai_services" in cached_info and service in cached_info["ai_services"]:
+                service_info = cached_info["ai_services"][service]
+                if "models" in service_info and service_info["models"]:
+                    models = service_info["models"]
+                else:
+                    models = self._get_default_models(service)
+            else:
+                models = self._get_default_models(service)
+                
+        except Exception:
+            models = self._get_default_models(service)
         
-        self.ai_model_combo['values'] = models.get(service, ["default"])
-        if models.get(service):
-            self.ai_model_var.set(models[service][0])
+        self.ai_model_combo['values'] = models
+        if models:
+            self.ai_model_var.set(models[0])
             
         # 機能オプションを更新
         self.update_ai_features(service)
@@ -469,14 +486,34 @@ class MainWindow:
         for widget in self.ai_features_frame.winfo_children():
             widget.destroy()
             
-        # サービス毎の機能オプション
-        features = {
-            "chatgpt": ["DeepThink", "Code Interpreter", "Web Browsing"],
-            "claude": ["思考モード", "長文解析"],
-            "gemini": ["マルチモーダル", "コード生成"],
-            "genspark": ["リサーチモード"],
-            "google_ai_studio": ["実験的機能"]
-        }
+        # 最新情報から機能を取得、なければデフォルト
+        try:
+            updater = AIModelUpdater()
+            cached_info = updater.get_cached_info()
+            
+            if "ai_services" in cached_info and service in cached_info["ai_services"]:
+                service_info = cached_info["ai_services"][service]
+                if "features" in service_info:
+                    feature_mapping = {
+                        "vision": "画像認識",
+                        "code_interpreter": "コード実行",
+                        "web_search": "Web検索",
+                        "dalle": "画像生成",
+                        "artifacts": "アーティファクト",
+                        "projects": "プロジェクト",
+                        "multimodal": "マルチモーダル",
+                        "code_execution": "コード実行",
+                        "research": "リサーチ",
+                        "citations": "引用"
+                    }
+                    features = [feature_mapping.get(f, f) for f in service_info["features"]]
+                else:
+                    features = self._get_default_features(service)
+            else:
+                features = self._get_default_features(service)
+                
+        except Exception:
+            features = self._get_default_features(service)
         
         ttk.Label(self.ai_features_frame, text="機能オプション:").grid(row=0, column=0, sticky=tk.W)
         
@@ -704,6 +741,80 @@ class MainWindow:
             # プレビューを更新
             if self.current_structure and self.current_task_rows:
                 self._update_preview_display(self.current_structure, self.current_task_rows)
+                
+    def update_ai_models(self):
+        """最新のAIモデル情報を更新"""
+        def update_async():
+            try:
+                self.add_log_entry("🔄 AIモデル最新情報を取得中...")
+                self.update_models_btn.configure(state="disabled")
+                
+                # モデル情報を更新
+                results = update_models_sync()
+                
+                # 結果を表示
+                success_count = 0
+                for service, info in results.items():
+                    if "error" not in info:
+                        success_count += 1
+                        models = info.get("models", [])
+                        self.add_log_entry(f"✅ {service}: {len(models)}個のモデルを取得")
+                    else:
+                        self.add_log_entry(f"⚠️ {service}: 更新失敗")
+                        
+                self.add_log_entry(f"🎯 更新完了: {success_count}/5 サービス")
+                
+                # モデル選択肢を更新
+                self._update_model_options_from_latest()
+                
+            except Exception as e:
+                self.add_log_entry(f"❌ 最新情報更新エラー: {e}")
+            finally:
+                self.update_models_btn.configure(state="normal")
+                
+        threading.Thread(target=update_async, daemon=True).start()
+        
+    def _update_model_options_from_latest(self):
+        """最新情報からモデル選択肢を更新"""
+        try:
+            updater = AIModelUpdater()
+            cached_info = updater.get_cached_info()
+            
+            if "ai_services" in cached_info:
+                # モデル選択肢を更新
+                for service, info in cached_info["ai_services"].items():
+                    if "models" in info and info["models"]:
+                        # 現在のサービスと一致する場合、モデルリストを更新
+                        if self.ai_service_var.get() == service:
+                            self.ai_model_combo["values"] = info["models"]
+                            # 現在の選択が無効な場合は最初のモデルを選択
+                            if self.ai_model_var.get() not in info["models"]:
+                                self.ai_model_var.set(info["models"][0])
+                                
+        except Exception as e:
+            logger.error(f"モデル選択肢更新エラー: {e}")
+            
+    def _get_default_models(self, service: str) -> List[str]:
+        """デフォルトのモデルリストを取得"""
+        default_models = {
+            "chatgpt": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+            "claude": ["claude-3.5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+            "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro", "gemini-pro-vision"],
+            "genspark": ["default", "advanced"],
+            "google_ai_studio": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+        }
+        return default_models.get(service, ["default"])
+        
+    def _get_default_features(self, service: str) -> List[str]:
+        """デフォルトの機能リストを取得"""
+        default_features = {
+            "chatgpt": ["画像認識", "コード実行", "Web検索", "画像生成"],
+            "claude": ["画像認識", "アーティファクト", "プロジェクト"],
+            "gemini": ["画像認識", "マルチモーダル", "コード実行"],
+            "genspark": ["リサーチ", "引用"],
+            "google_ai_studio": ["画像認識", "マルチモーダル", "コード実行"]
+        }
+        return default_features.get(service, [])
         
     def run(self):
         """GUIアプリケーション実行"""
