@@ -1,139 +1,116 @@
 {
-  "last_updated": "2025-06-12T11:45:31.231816",
+  "last_updated": "2025-06-12T15:17:18.529775",
+  "fetch_method": "manual_verification_2025_06_12",
   "ai_services": {
     "chatgpt": {
       "models": [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-4-turbo",
-        "gpt-4",
-        "gpt-3.5-turbo"
+        "o1-preview",
+        "o1-mini",
+        "GPT-4o",
+        "GPT-4o mini",
+        "GPT-4 Turbo",
+        "GPT-4",
+        "GPT-3.5 Turbo"
       ],
-      "settings": {
-        "temperature": {
-          "min": 0,
-          "max": 2,
-          "default": 0.7
-        },
-        "max_tokens": {
-          "min": 1,
-          "max": 128000,
-          "default": 4096
-        }
-      },
       "features": [
-        "vision",
-        "code_interpreter",
-        "web_search",
-        "dalle"
-      ]
+        "Deep Think",
+        "画像認識",
+        "画像生成",
+        "コード実行",
+        "Web検索",
+        "ファイル分析",
+        "カスタムGPT",
+        "音声対話"
+      ],
+      "last_updated": "2025-06-12T15:17:18.529785",
+      "access_method": "browser",
+      "login_required": true,
+      "cloudflare_protected": true,
+      "notes": "o1シリーズは推論時間が表示される。GPT-4oは最新のマルチモーダル対応"
     },
     "claude": {
       "models": [
-        "claude-3.5-sonnet-latest",
-        "claude-3.5-haiku-latest",
-        "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307"
+        "Claude 3.5 Sonnet",
+        "Claude 3.5 Haiku",
+        "Claude 3 Opus",
+        "Claude 3 Sonnet",
+        "Claude 3 Haiku"
       ],
-      "settings": {
-        "temperature": {
-          "min": 0,
-          "max": 1,
-          "default": 0.7
-        },
-        "max_tokens": {
-          "min": 1,
-          "max": 200000,
-          "default": 4096
-        }
-      },
       "features": [
-        "vision",
-        "artifacts",
-        "projects"
-      ]
+        "Deep Think",
+        "画像認識",
+        "アーティファクト",
+        "プロジェクト",
+        "200K Context",
+        "コード実行",
+        "ファイル分析"
+      ],
+      "last_updated": "2025-06-12T15:17:18.529788",
+      "access_method": "browser",
+      "login_required": true,
+      "cloudflare_protected": true,
+      "notes": "Claude 3.5 Sonnetが最新で最高性能。Artifactsでコード実行可能"
     },
     "gemini": {
       "models": [
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-flash-latest",
-        "gemini-1.0-pro"
+        "Gemini 2.0 Flash",
+        "Gemini 1.5 Pro",
+        "Gemini 1.5 Flash",
+        "Gemini 1.0 Pro"
       ],
-      "settings": {
-        "temperature": {
-          "min": 0,
-          "max": 2,
-          "default": 0.9
-        },
-        "max_output_tokens": {
-          "min": 1,
-          "max": 8192,
-          "default": 2048
-        },
-        "top_p": {
-          "min": 0,
-          "max": 1,
-          "default": 0.95
-        },
-        "top_k": {
-          "min": 1,
-          "max": 40,
-          "default": 40
-        }
-      },
       "features": [
-        "vision",
-        "multimodal",
-        "code_execution"
-      ]
+        "Deep Think",
+        "画像認識",
+        "動画分析",
+        "音声認識",
+        "コード実行",
+        "リアルタイム検索",
+        "長文対応",
+        "Live API"
+      ],
+      "last_updated": "2025-06-12T15:17:18.529790",
+      "access_method": "browser",
+      "login_required": false,
+      "cloudflare_protected": false,
+      "notes": "Gemini 2.0 Flashは最新。Live APIでリアルタイム対話可能"
     },
     "genspark": {
       "models": [
-        "default",
-        "advanced"
+        "Genspark Pro",
+        "Genspark Standard"
       ],
-      "settings": {},
       "features": [
-        "research",
-        "citations"
-      ]
+        "Deep Research",
+        "引用付き回答",
+        "リアルタイム検索",
+        "マルチソース統合"
+      ],
+      "last_updated": "2025-06-12T15:17:18.529792",
+      "access_method": "browser",
+      "login_required": false,
+      "cloudflare_protected": false,
+      "notes": "リサーチ特化AI。引用付きで信頼性が高い"
     },
     "google_ai_studio": {
       "models": [
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-flash-latest",
-        "gemini-1.0-pro"
+        "Gemini 2.0 Flash",
+        "Gemini 1.5 Pro",
+        "Gemini 1.5 Flash",
+        "Gemini 1.0 Pro"
       ],
-      "settings": {
-        "temperature": {
-          "min": 0,
-          "max": 2,
-          "default": 0.9
-        },
-        "max_output_tokens": {
-          "min": 1,
-          "max": 8192,
-          "default": 2048
-        },
-        "top_p": {
-          "min": 0,
-          "max": 1,
-          "default": 0.95
-        },
-        "top_k": {
-          "min": 1,
-          "max": 40,
-          "default": 40
-        }
-      },
       "features": [
-        "vision",
-        "multimodal",
-        "code_execution"
-      ]
+        "API Access",
+        "Fine-tuning",
+        "Prompt Design",
+        "Batch Processing",
+        "マルチモーダル",
+        "Function Calling"
+      ],
+      "last_updated": "2025-06-12T15:17:18.529794",
+      "access_method": "api",
+      "login_required": true,
+      "cloudflare_protected": false,
+      "notes": "Google AI Studioは開発者向け。API経由でアクセス可能"
     }
   }
 }

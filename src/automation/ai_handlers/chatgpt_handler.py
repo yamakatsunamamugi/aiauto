@@ -6,6 +6,7 @@ ChatGPT (https://chat.openai.com) の自動操作を実装
 """
 
 import asyncio
+import time
 from typing import Optional, List
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
@@ -37,7 +38,7 @@ class ChatGPTHandler(BaseAIHandler):
 
     async def login_check(self) -> bool:
         """
-        ChatGPTのログイン状態確認
+        ChatGPTのログイン状態確認（Cloudflare対策強化版）
         
         Returns:
             bool: ログイン済みかどうか
@@ -46,7 +47,12 @@ class ChatGPTHandler(BaseAIHandler):
             # まずChatGPTサイトにアクセス
             current_url = self.page.url
             if "chat.openai.com" not in current_url:
+                logger.info("ChatGPTサイトにアクセス中...")
                 await self.page.goto(self.SERVICE_URL, wait_until="networkidle")
+                
+                # Cloudflare待機
+                await self._wait_for_cloudflare()
+                
                 await asyncio.sleep(3)
             
             # ログイン状態の確認方法（複数パターン）
@@ -443,6 +449,83 @@ class ChatGPTHandler(BaseAIHandler):
         except Exception as e:
             logger.error(f"ChatGPT: 応答取得でエラー: {e}")
             raise
+
+    async def _wait_for_cloudflare(self):
+        """Cloudflareチェック待機"""
+        try:
+            # Cloudflareページの検出
+            cf_selectors = [
+                '.cf-browser-verification',
+                '#cf-wrapper',
+                '.ray-id',
+                'title:has-text("Just a moment")',
+                '.cf-error-title'
+            ]
+            
+            for selector in cf_selectors:
+                try:
+                    element = await self.page.wait_for_selector(selector, timeout=3000)
+                    if element:
+                        logger.info("⏳ Cloudflareチェックを検出。待機中...")
+                        
+                        # ユーザーに手動対応を促す
+                        logger.warning("🔐 Cloudflareチェックが検出されました。")
+                        logger.warning("   ブラウザで手動でチェックを完了してください。")
+                        logger.warning("   完了すると自動的に処理が継続されます。")
+                        
+                        # チェック完了まで待機（最大60秒）
+                        try:
+                            await self.page.wait_for_function(
+                                "!document.querySelector('.cf-browser-verification') && !document.querySelector('#cf-wrapper')",
+                                timeout=60000
+                            )
+                            logger.info("✅ Cloudflareチェック完了")
+                            await asyncio.sleep(2)  # 安定化待ち
+                        except PlaywrightTimeoutError:
+                            logger.warning("⚠️ Cloudflareチェック待機タイムアウト。継続します...")
+                        
+                        break
+                except PlaywrightTimeoutError:
+                    continue
+                    
+        except Exception as e:
+            logger.debug(f"Cloudflareチェック: {e}")
+
+    async def wait_for_manual_intervention(self, message: str, max_wait: int = 300):
+        """手動介入待機（ログイン、Cloudflare等）"""
+        logger.warning(f"🔐 手動介入が必要です: {message}")
+        logger.warning("   ブラウザで操作を完了してから、任意のキーを押してください...")
+        
+        start_time = time.time()
+        
+        # シンプルな待機（実際のプロダクションではより高度な検出が必要）
+        while time.time() - start_time < max_wait:
+            try:
+                # ページの変化を検出
+                await asyncio.sleep(5)
+                
+                # ChatGPTのチャット画面に到達したかチェック
+                chat_indicators = [
+                    "[data-testid='prompt-textarea']",
+                    "textarea[placeholder*='Message']",
+                    ".new-chat-button"
+                ]
+                
+                for indicator in chat_indicators:
+                    try:
+                        element = await self.page.wait_for_selector(indicator, timeout=2000)
+                        if element:
+                            logger.info("✅ ChatGPT操作画面に到達しました")
+                            return True
+                    except:
+                        continue
+                        
+            except Exception as e:
+                logger.debug(f"手動介入待機エラー: {e}")
+                await asyncio.sleep(5)
+        
+        logger.warning(f"⚠️ 手動介入待機タイムアウト（{max_wait}秒）")
+        return False
 
     async def set_model(self, model_name: str) -> bool:
         """
