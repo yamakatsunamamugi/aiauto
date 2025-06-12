@@ -1140,24 +1140,24 @@ class MainWindow:
             logger.error(f"モデル選択肢更新エラー: {e}")
             
     def _get_default_models(self, service: str) -> List[str]:
-        """デフォルトのモデルリストを取得"""
+        """最新のモデルリストを取得（2025年6月12日更新）"""
         default_models = {
-            "chatgpt": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-            "claude": ["claude-3.5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-            "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro", "gemini-pro-vision"],
-            "genspark": ["default", "advanced"],
-            "google_ai_studio": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+            "chatgpt": ["o1-preview", "o1-mini", "GPT-4o", "GPT-4o mini", "GPT-4 Turbo", "GPT-4", "GPT-3.5 Turbo"],
+            "claude": ["Claude 3.5 Sonnet", "Claude 3.5 Haiku", "Claude 3 Opus", "Claude 3 Sonnet", "Claude 3 Haiku"],
+            "gemini": ["Gemini 2.0 Flash", "Gemini 1.5 Pro", "Gemini 1.5 Flash", "Gemini 1.0 Pro"],
+            "genspark": ["Genspark Pro", "Genspark Standard"],
+            "google_ai_studio": ["Gemini 2.0 Flash", "Gemini 1.5 Pro", "Gemini 1.5 Flash", "Gemini 1.0 Pro"]
         }
         return default_models.get(service, ["default"])
         
     def _get_default_features(self, service: str) -> List[str]:
-        """デフォルトの機能リストを取得"""
+        """最新の機能リストを取得（2025年6月12日更新）"""
         default_features = {
-            "chatgpt": ["画像認識", "コード実行", "Web検索", "画像生成"],
-            "claude": ["画像認識", "アーティファクト", "プロジェクト"],
-            "gemini": ["画像認識", "マルチモーダル", "コード実行"],
-            "genspark": ["リサーチ", "引用"],
-            "google_ai_studio": ["画像認識", "マルチモーダル", "コード実行"]
+            "chatgpt": ["Deep Think", "画像認識", "画像生成", "コード実行", "Web検索", "ファイル分析", "カスタムGPT", "音声対話"],
+            "claude": ["Deep Think", "画像認識", "アーティファクト", "プロジェクト", "200K Context", "コード実行", "ファイル分析"],
+            "gemini": ["Deep Think", "画像認識", "動画分析", "音声認識", "コード実行", "リアルタイム検索", "長文対応", "Live API"],
+            "genspark": ["Deep Research", "引用付き回答", "リアルタイム検索", "マルチソース統合"],
+            "google_ai_studio": ["API Access", "Fine-tuning", "Prompt Design", "Batch Processing", "マルチモーダル", "Function Calling"]
         }
         return default_features.get(service, [])
         
