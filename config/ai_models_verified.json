@@ -1,0 +1,41 @@
+{
+  "last_verified": "2025-06-12 12:04:50",
+  "verified_by": "manual_check_with_browser",
+  "version": "1.0",
+  "notes": {
+    "chatgpt": "ChatGPT Plusで利用可能なモデル（2025年1月確認）",
+    "claude": "Claude.aiで利用可能なモデル（2025年1月確認）",
+    "gemini": "Gemini Advancedで利用可能なモデル（2025年1月確認）",
+    "genspark": "モデル名は非公開、defaultのみ",
+    "google_ai_studio": "Google AI StudioはGeminiモデルを使用"
+  },
+  "models": {
+    "chatgpt": [
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-4-turbo",
+      "gpt-4",
+      "gpt-3.5-turbo"
+    ],
+    "claude": [
+      "claude-3.5-sonnet",
+      "claude-3-opus",
+      "claude-3-sonnet",
+      "claude-3-haiku"
+    ],
+    "gemini": [
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-pro",
+      "gemini-pro-vision"
+    ],
+    "genspark": [
+      "default"
+    ],
+    "google_ai_studio": [
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-pro"
+    ]
+  }
+}

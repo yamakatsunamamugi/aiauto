@@ -17,8 +17,7 @@ from src.sheets.models import AIService, ColumnAIConfig
 from src.sheets.data_handler import DataHandler
 from src.utils.logger import logger
 from src.gui.column_ai_config import ColumnAIConfigDialog
-from src.gui.ai_model_updater import update_models_sync, AIModelUpdater
-from src.gui.browser_session_model_fetcher import fetch_models_sync as fetch_models_browser_session
+from src.gui.simple_model_updater import update_models_sync, SimpleModelUpdater as AIModelUpdater
 
 
 class MainWindow:
@@ -146,6 +145,10 @@ class MainWindow:
         # 最新情報更新ボタン
         self.update_models_btn = ttk.Button(btn_frame, text="🔄 最新情報更新", command=self.update_ai_models)
         self.update_models_btn.pack(side=tk.LEFT, padx=2)
+        
+        # モデル編集ボタン
+        self.edit_models_btn = ttk.Button(btn_frame, text="📝 モデル編集", command=self.edit_model_json)
+        self.edit_models_btn.pack(side=tk.LEFT, padx=2)
         
     def create_control_section(self, parent, row):
         """制御セクション"""
@@ -919,12 +922,11 @@ class MainWindow:
         """最新のAIモデル情報を更新"""
         def update_async():
             try:
-                self.add_log_entry("🔄 AIモデル最新情報を取得中...")
-                self.add_log_entry("🌐 ブラウザセッション方式で実際のモデルリストを取得します")
+                self.add_log_entry("🔄 AIモデル情報を読み込んでいます...")
                 self.update_models_btn.configure(state="disabled")
                 
-                # ブラウザセッション方式でモデル情報を取得
-                results = fetch_models_browser_session()
+                # 検証済みJSONファイルからモデル情報を取得
+                results = update_models_sync()
                 
                 # 結果を表示
                 success_count = 0
@@ -932,16 +934,16 @@ class MainWindow:
                     if "error" not in info:
                         success_count += 1
                         models = info.get("models", [])
-                        self.add_log_entry(f"✅ {service}: {len(models)}個のモデルを取得")
+                        self.add_log_entry(f"✅ {service}: {len(models)}個のモデルを読み込み")
                         if models:
                             self.add_log_entry(f"   モデル: {', '.join(models[:3])}{'...' if len(models) > 3 else ''}")
                     else:
-                        self.add_log_entry(f"⚠️ {service}: 更新失敗 - {info.get('error', '不明なエラー')}")
+                        self.add_log_entry(f"⚠️ {service}: 読み込み失敗")
                         
-                self.add_log_entry(f"🎯 更新完了: {success_count}/5 サービス")
+                self.add_log_entry(f"🎯 読み込み完了: {success_count}/5 サービス")
                 
                 # モデル選択肢を更新
-                self._update_model_options_from_browser_session(results)
+                self._update_model_options_from_latest()
                 
             except Exception as e:
                 self.add_log_entry(f"❌ 最新情報更新エラー: {e}")
@@ -1016,6 +1018,29 @@ class MainWindow:
             "google_ai_studio": ["画像認識", "マルチモーダル", "コード実行"]
         }
         return default_features.get(service, [])
+        
+    def edit_model_json(self):
+        """モデルJSONを編集"""
+        try:
+            from src.gui.model_json_editor import ModelJsonEditor
+            
+            self.add_log_entry("📝 モデル編集ダイアログを開きます...")
+            
+            # 編集ダイアログを表示
+            editor = ModelJsonEditor(self.root)
+            result = editor.show()
+            
+            if result:
+                self.add_log_entry("✅ モデル設定を保存しました")
+                
+                # モデルリストを再読み込み
+                self.update_ai_models()
+            else:
+                self.add_log_entry("❌ モデル編集をキャンセルしました")
+                
+        except Exception as e:
+            self.add_log_entry(f"❌ モデル編集エラー: {e}")
+            messagebox.showerror("エラー", f"モデル編集エラー: {e}")
         
     def run(self):
         """GUIアプリケーション実行"""
