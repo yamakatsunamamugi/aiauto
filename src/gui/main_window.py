@@ -16,6 +16,7 @@ from src.automation.automation_controller import AutomationController
 from src.sheets.models import AIService, ColumnAIConfig
 from src.sheets.data_handler import DataHandler
 from src.utils.logger import logger
+from src.gui.column_ai_config import ColumnAIConfigDialog
 
 
 class MainWindow:
@@ -30,6 +31,7 @@ class MainWindow:
         # Sheets統合
         self.data_handler = DataHandler()
         self.current_sheet_structure = None
+        self.current_task_rows = None
         self.available_sheets = []
         
         # GUI状態管理
@@ -271,6 +273,9 @@ class MainWindow:
         columns = ("行", "コピー列", "コピーテキスト", "AI設定", "状態")
         self.preview_tree = ttk.Treeview(frame, columns=columns, show="headings", height=8)
         
+        # 列ごとのAI設定を保存
+        self.column_ai_config = {}
+        
         # 列設定
         self.preview_tree.heading("行", text="行")
         self.preview_tree.heading("コピー列", text="コピー列")
@@ -293,6 +298,10 @@ class MainWindow:
         
         # メインフレームの行の重みを設定
         parent.rowconfigure(row, weight=1)
+        
+        # AI設定ボタンを追加
+        config_btn = ttk.Button(frame, text="🤖 列ごとのAI設定", command=self.configure_column_ai)
+        config_btn.grid(row=2, column=0, pady=5)
         
     def load_sheet_info(self):
         """シート情報読込"""
@@ -371,6 +380,9 @@ class MainWindow:
                 # タスク行作成
                 task_rows = self.data_handler.create_task_rows(structure)
                 
+                # タスク行を保存
+                self.current_task_rows = task_rows
+                
                 # UI更新
                 self.root.after(0, lambda: self._update_preview_display(structure, task_rows))
                 self.root.after(0, lambda: self.add_log_entry(f"✅ シート解析完了: {len(task_rows)}件のタスク"))
@@ -396,7 +408,13 @@ class MainWindow:
         for i, task in enumerate(task_rows[:20]):  # 最大20件表示
             copy_col_letter = self._number_to_column_letter(task.column_positions.copy_column + 1)
             copy_text = task.copy_text[:50] + "..." if len(task.copy_text) > 50 else task.copy_text
-            ai_setting = f"{task.ai_config.ai_service.value}/{task.ai_config.ai_model}"
+            
+            # 列ごとのAI設定を確認
+            if copy_col_letter in self.column_ai_config:
+                config = self.column_ai_config[copy_col_letter]
+                ai_setting = f"{config['ai_service']}/{config['ai_model']}"
+            else:
+                ai_setting = f"{task.ai_config.ai_service.value}/{task.ai_config.ai_model}"
             
             self.preview_tree.insert("", "end", values=(
                 task.row_number,
@@ -549,12 +567,21 @@ class MainWindow:
                     break
                     
                 try:
+                    # 列ごとのAI設定を適用
+                    copy_col_letter = self._number_to_column_letter(task_row.column_positions.copy_column + 1)
+                    if copy_col_letter in self.column_ai_config:
+                        config = self.column_ai_config[copy_col_letter]
+                        # AI設定を更新
+                        task_row.ai_config.ai_service = AIService(config['ai_service'])
+                        task_row.ai_config.ai_model = config['ai_model']
+                    
                     # 進捗更新
                     progress = (i / total_tasks) * 100
                     self.root.after(0, lambda p=progress: self.progress_var.set(p))
                     
                     self.add_log_entry(f"🔄 タスク{i+1}/{total_tasks}: 行{task_row.row_number}")
                     self.add_log_entry(f"📝 コピーテキスト: {task_row.copy_text[:100]}...")
+                    self.add_log_entry(f"🤖 使用AI: {task_row.ai_config.ai_service.value}/{task_row.ai_config.ai_model}")
                     
                     # AI処理（デモ版）
                     import time
@@ -651,6 +678,32 @@ class MainWindow:
         """ログクリア"""
         self.log_text.delete(1.0, tk.END)
         self.add_log_entry("🗑️ ログをクリアしました")
+        
+    def configure_column_ai(self):
+        """列ごとのAI設定"""
+        if not self.current_structure:
+            messagebox.showwarning("警告", "まずシートをロードしてください")
+            return
+            
+        # コピー列のリストを取得
+        copy_columns = []
+        for col_info in self.current_structure.copy_columns:
+            copy_columns.append(col_info.column_letter)
+            
+        if not copy_columns:
+            messagebox.showinfo("情報", "コピー列が見つかりません")
+            return
+            
+        # ダイアログ表示
+        dialog = ColumnAIConfigDialog(self.root, copy_columns, self.column_ai_config)
+        result = dialog.show()
+        
+        if result:
+            self.column_ai_config = result
+            self.add_log_entry("✅ 列ごとのAI設定を更新しました")
+            # プレビューを更新
+            if self.current_structure and self.current_task_rows:
+                self._update_preview_display(self.current_structure, self.current_task_rows)
         
     def run(self):
         """GUIアプリケーション実行"""

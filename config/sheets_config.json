@@ -70,7 +70,7 @@
     "result_column_offset": 1
   },
   "validation_rules": {
-    "required_headers": ["作業"],
+    "required_headers": ["作業指示行"],
     "required_copy_columns": ["コピー"],
     "min_rows": 5,
     "max_text_length": 10000

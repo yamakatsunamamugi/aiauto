@@ -1,0 +1,12 @@
+{
+  "logging": {
+    "console_level": "INFO",
+    "file_level": "DEBUG",
+    "disable_verbose_logs": [
+      "sheets.sheet_parser._find_copy_columns",
+      "sheets.sheet_parser._create_task_row"
+    ],
+    "performance_mode": true,
+    "batch_log_interval": 1.0
+  }
+}

@@ -55,7 +55,7 @@ class SheetParser:
         self.sheets_client = sheets_client
         self.work_header_text = "作業指示行"  # CLAUDE.md仕様
         self.copy_header_text = "コピー"  # CLAUDE.md仕様
-        self.work_header_row = 5  # CLAUDE.md仕様（1ベース）
+        self.work_header_row = 4  # 実際のシート構造に合わせて変更（1ベース）
         
     def parse_sheet_structure(self, spreadsheet_id: str, sheet_name: str) -> Optional[SheetStructure]:
         """
@@ -108,11 +108,7 @@ class SheetParser:
                 total_columns=len(headers) if headers else 0
             )
             
-            logger.info(f"✅ シート構造解析成功:")
-            logger.info(f"  - 作業ヘッダー行: {work_header_row}")
-            logger.info(f"  - データ開始行: {data_start_row}")
-            logger.info(f"  - コピー列数: {len(copy_columns)}")
-            logger.info(f"  - 総行数: {structure.total_rows}")
+            logger.info(f"✅ シート構造解析成功: 作業ヘッダー行={work_header_row}, データ開始行={data_start_row}, コピー列数={len(copy_columns)}, 総行数={structure.total_rows}")
             
             return structure
             
@@ -188,7 +184,7 @@ class SheetParser:
             Optional[int]: 「作業指示行」行のインデックス（0ベース）
         """
         try:
-            # CLAUDE.md仕様では5行目から検索開始
+            # 実際のシート構造に合わせて4行目から検索開始
             start_row = self.work_header_row - 1  # 0ベースに変換
             
             for row_index in range(start_row, min(len(all_data), start_row + 5)):
@@ -248,10 +244,10 @@ class SheetParser:
                     
                     copy_columns.append(copy_col_info)
                     
-                    logger.info(f"「{self.copy_header_text}」列発見: {col_letter}列（インデックス{col_index}）")
-                    logger.info(f"  - 処理列: {self._number_to_column_letter(process_col + 1)}")
-                    logger.info(f"  - エラー列: {self._number_to_column_letter(error_col + 1)}")
-                    logger.info(f"  - 結果列: {self._number_to_column_letter(result_col + 1)}")
+                    logger.debug(f"「{self.copy_header_text}」列発見: {col_letter}列（インデックス{col_index}）")
+                    logger.debug(f"  - 処理列: {self._number_to_column_letter(process_col + 1)}")
+                    logger.debug(f"  - エラー列: {self._number_to_column_letter(error_col + 1)}")
+                    logger.debug(f"  - 結果列: {self._number_to_column_letter(result_col + 1)}")
             
             return copy_columns
             

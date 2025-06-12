@@ -44,9 +44,9 @@ class AppLogger:
         )
         file_handler.setLevel(logging.DEBUG)
         
-        # コンソールハンドラー
+        # コンソールハンドラー（パフォーマンスモード）
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARNING)  # デバッグログを削減
         
         # フォーマッター
         file_formatter = logging.Formatter(
