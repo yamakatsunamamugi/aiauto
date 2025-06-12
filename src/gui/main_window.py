@@ -518,9 +518,8 @@ class MainWindow:
         ttk.Label(self.ai_features_frame, text="機能オプション:").grid(row=0, column=0, sticky=tk.W)
         
         self.feature_vars = {}
-        service_features = features.get(service, [])
         
-        for i, feature in enumerate(service_features):
+        for i, feature in enumerate(features):
             var = tk.BooleanVar()
             self.feature_vars[feature] = var
             cb = ttk.Checkbutton(self.ai_features_frame, text=feature, variable=var)
