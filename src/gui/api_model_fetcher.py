@@ -372,6 +372,65 @@ class APIModelFetcher:
         }
 
 
+def _get_fallback_models() -> Dict[str, Dict]:
+    """フォールバック用のモデル情報"""
+    return {
+        "chatgpt": {
+            "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+            "settings": {
+                "temperature": {"min": 0, "max": 2, "default": 0.7},
+                "max_tokens": {"min": 1, "max": 128000, "default": 4096}
+            },
+            "features": ["vision", "code_interpreter", "web_search", "dalle"],
+            "last_updated": datetime.now().isoformat()
+        },
+        "claude": {
+            "models": ["claude-3.5-sonnet-latest", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+            "settings": {
+                "temperature": {"min": 0, "max": 1, "default": 0.7},
+                "max_tokens": {"min": 1, "max": 200000, "default": 4096}
+            },
+            "features": ["vision", "artifacts", "projects", "computer_use"],
+            "last_updated": datetime.now().isoformat()
+        },
+        "gemini": {
+            "models": ["gemini-2.0-flash-exp", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest"],
+            "settings": {
+                "temperature": {"min": 0, "max": 2, "default": 0.9},
+                "max_output_tokens": {"min": 1, "max": 8192, "default": 2048}
+            },
+            "features": ["vision", "multimodal", "code_execution", "grounding"],
+            "last_updated": datetime.now().isoformat()
+        },
+        "genspark": {
+            "models": ["default", "advanced", "research"],
+            "settings": {},
+            "features": ["research", "citations", "multi_source"],
+            "last_updated": datetime.now().isoformat()
+        },
+        "google_ai_studio": {
+            "models": ["gemini-2.0-flash-exp", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest"],
+            "settings": {
+                "temperature": {"min": 0, "max": 2, "default": 0.9},
+                "max_output_tokens": {"min": 1, "max": 8192, "default": 2048}
+            },
+            "features": ["vision", "multimodal", "code_execution", "prompt_gallery", "system_instructions"],
+            "last_updated": datetime.now().isoformat()
+        }
+    }
+
+
+def _get_default_service_info(service: str) -> Dict[str, Any]:
+    """特定のサービスのデフォルト情報を取得"""
+    fallback = _get_fallback_models()
+    return fallback.get(service, {
+        "models": [],
+        "settings": {},
+        "features": [],
+        "last_updated": datetime.now().isoformat()
+    })
+
+
 async def update_models_api() -> Dict[str, Dict]:
     """API方式でモデル情報を更新（メイン関数）"""
     async with APIModelFetcher() as fetcher:
@@ -406,13 +465,64 @@ def save_results(results: Dict[str, Dict]):
         logger.error(f"❌ 結果保存エラー: {e}")
 
 
+def update_model_list() -> Dict[str, Dict]:
+    """GUI用のモデル情報更新関数（引数なし、dict型を返す）"""
+    try:
+        logger.info("API方式でモデル情報の取得を開始")
+        
+        # 非同期関数を同期的に実行
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            async def fetch_with_timeout():
+                """タイムアウト付きでモデル情報を取得"""
+                try:
+                    # 10秒のタイムアウトを設定
+                    async with APIModelFetcher() as fetcher:
+                        return await asyncio.wait_for(
+                            fetcher.fetch_all_models(),
+                            timeout=10.0
+                        )
+                except asyncio.TimeoutError:
+                    logger.error("モデル情報取得がタイムアウトしました（10秒）")
+                    return _get_fallback_models()
+                    
+            results = loop.run_until_complete(fetch_with_timeout())
+            
+        finally:
+            loop.close()
+            
+        # 結果の検証
+        if not results or not isinstance(results, dict):
+            logger.warning("無効な結果を受信しました。フォールバックを使用します。")
+            return _get_fallback_models()
+            
+        # 各サービスの結果を検証
+        validated_results = {}
+        for service, data in results.items():
+            if isinstance(data, dict) and 'models' in data:
+                validated_results[service] = data
+            else:
+                logger.warning(f"{service}の結果が無効です。デフォルトを使用します。")
+                validated_results[service] = _get_default_service_info(service)
+                
+        logger.info(f"✅ モデル情報取得完了: {len(validated_results)}個のサービス")
+        return validated_results
+        
+    except Exception as e:
+        logger.error(f"モデル情報取得中に予期しないエラーが発生: {e}", exc_info=True)
+        # エラー時でも空の辞書ではなく、フォールバックデータを返す
+        return _get_fallback_models()
+
+
 def update_models_sync() -> Dict[str, Dict]:
-    """同期的にモデル情報を更新（GUI用）"""
-    return asyncio.run(update_models_api())
+    """同期的にモデル情報を更新（GUI用） - 互換性のため残す"""
+    return update_model_list()
 
 
 if __name__ == "__main__":
     # テスト実行
     logging.basicConfig(level=logging.INFO)
-    results = update_models_sync()
+    results = update_model_list()
     print(json.dumps(results, indent=2, ensure_ascii=False))
