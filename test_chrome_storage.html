@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chrome拡張機能テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        #status, #result {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Chrome拡張機能通信テスト</h1>
+    
+    <h2>1. 拡張機能の状態確認</h2>
+    <button onclick="checkExtension()">拡張機能を確認</button>
+    <div id="status"></div>
+    
+    <h2>2. テストメッセージ送信</h2>
+    <textarea id="testText" rows="3" cols="50">これはテストメッセージです</textarea><br>
+    <button onclick="sendTestMessage()">ChatGPTにテスト送信</button>
+    <div id="result"></div>
+    
+    <h2>3. Chrome Storage確認</h2>
+    <button onclick="checkStorage()">Storage内容を確認</button>
+    <div id="storage"></div>
+
+    <script>
+        // 拡張機能の確認
+        async function checkExtension() {
+            const statusDiv = document.getElementById('status');
+            try {
+                // 拡張機能のIDを確認
+                const extensionId = 'AI Automation Bridge';
+                statusDiv.innerHTML = '<p>拡張機能を確認中...</p>';
+                
+                // chrome.runtime.sendMessageでテスト
+                if (typeof chrome !== 'undefined' && chrome.runtime) {
+                    chrome.runtime.sendMessage(
+                        { action: 'getExtensionStatus' },
+                        response => {
+                            if (chrome.runtime.lastError) {
+                                statusDiv.innerHTML = `<p class="error">❌ エラー: ${chrome.runtime.lastError.message}</p>`;
+                            } else if (response && response.success) {
+                                statusDiv.innerHTML = `<p class="success">✅ 拡張機能は動作中です (アクティブリクエスト: ${response.activeRequests})</p>`;
+                            } else {
+                                statusDiv.innerHTML = '<p class="error">❌ 拡張機能から応答がありません</p>';
+                            }
+                        }
+                    );
+                } else {
+                    statusDiv.innerHTML = '<p class="error">❌ Chrome APIが利用できません</p>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<p class="error">❌ エラー: ${error.message}</p>`;
+            }
+        }
+        
+        // テストメッセージ送信
+        async function sendTestMessage() {
+            const resultDiv = document.getElementById('result');
+            const text = document.getElementById('testText').value;
+            
+            try {
+                resultDiv.innerHTML = '<p>送信中...</p>';
+                
+                // chrome.storageにリクエストを保存
+                const requestId = `test_${Date.now()}`;
+                await chrome.storage.local.set({
+                    pendingRequest: {
+                        request_id: requestId,
+                        text: text,
+                        model: 'gpt-4o-mini',
+                        ai_service: 'chatgpt',
+                        timestamp: Date.now()
+                    }
+                });
+                
+                resultDiv.innerHTML = `<p class="success">✅ リクエスト送信完了 (ID: ${requestId})</p>`;
+                
+                // レスポンスを待つ
+                setTimeout(async () => {
+                    const result = await chrome.storage.local.get([`response_${requestId}`]);
+                    if (result[`response_${requestId}`]) {
+                        resultDiv.innerHTML += `<p class="success">応答: ${JSON.stringify(result[`response_${requestId}`])}</p>`;
+                    } else {
+                        resultDiv.innerHTML += '<p>応答待機中...</p>';
+                    }
+                }, 3000);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ エラー: ${error.message}</p>`;
+            }
+        }
+        
+        // Chrome Storage確認
+        async function checkStorage() {
+            const storageDiv = document.getElementById('storage');
+            try {
+                const data = await chrome.storage.local.get(null);
+                storageDiv.innerHTML = '<h3>Chrome Storage内容:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                storageDiv.innerHTML = `<p class="error">❌ エラー: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
