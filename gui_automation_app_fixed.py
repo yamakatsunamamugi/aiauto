@@ -32,7 +32,7 @@ class SpreadsheetAutomationGUI:
         """GUI初期化"""
         self.root = root
         self.root.title("スプレッドシート自動化システム - CLAUDE.md完全対応版")
-        self.root.geometry("1200x900")
+        self.root.geometry("1400x1000")
         
         # データ格納
         self.spreadsheet_url = ""
@@ -108,7 +108,7 @@ class SpreadsheetAutomationGUI:
         columns_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
         # スクロール可能なフレーム（高さを大幅に拡張）
-        canvas = tk.Canvas(columns_frame, height=400)
+        canvas = tk.Canvas(columns_frame, height=500)
         scrollbar = ttk.Scrollbar(columns_frame, orient="vertical", command=canvas.yview)
         self.scrollable_frame = ttk.Frame(canvas)
         
@@ -342,13 +342,13 @@ class SpreadsheetAutomationGUI:
         self.column_configs = {}
         
         for i, col_info in enumerate(self.copy_columns):
-            # 列フレーム
+            # 列フレーム（パディングとマージンを拡張）
             col_frame = ttk.LabelFrame(
                 self.scrollable_frame, 
                 text=f"📝 列{i+1}: {col_info['copy_letter']}列 (コピー列)", 
-                padding="10"
+                padding="20"
             )
-            col_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=5, padx=10)
+            col_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=15, padx=20, ipady=15)
             
             # グリッド設定でフレームを拡張可能にする
             col_frame.columnconfigure(1, weight=1)
@@ -366,9 +366,9 @@ class SpreadsheetAutomationGUI:
             model_combo.grid(row=0, column=3, padx=5, sticky=(tk.W, tk.E))
             
             # 設定選択
-            ttk.Label(col_frame, text="設定:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            ttk.Label(col_frame, text="設定:").grid(row=1, column=0, sticky=tk.W, pady=(15, 5))
             settings_frame = ttk.Frame(col_frame)
-            settings_frame.grid(row=1, column=1, columnspan=3, sticky=tk.W, padx=5)
+            settings_frame.grid(row=1, column=1, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
             
             settings_vars = {}
             
@@ -400,11 +400,11 @@ class SpreadsheetAutomationGUI:
             
             # 詳細設定ボタン
             ttk.Button(col_frame, text="詳細設定", 
-                      command=lambda idx=i: self.open_advanced_settings(idx)).grid(row=0, column=4, padx=15)
+                      command=lambda idx=i: self.open_advanced_settings(idx)).grid(row=0, column=4, padx=20, pady=5)
             
             # 設定状況表示
             status_label = ttk.Label(col_frame, text="未設定", foreground="red")
-            status_label.grid(row=1, column=4, padx=15)
+            status_label.grid(row=1, column=4, padx=20, pady=10)
             
             # 設定を保存
             self.column_configs[i] = {
@@ -624,6 +624,10 @@ class SpreadsheetAutomationGUI:
                         
                         if result['success']:
                             response_text = result['result']
+                            
+                            # モック応答の場合は警告
+                            if result.get('mock', False):
+                                self.log(f"      ⚠️ モック応答使用（Chrome拡張機能利用不可）")
                             
                             # カスタムプロンプトがあれば追加
                             if advanced_settings.get('custom_prompt'):
