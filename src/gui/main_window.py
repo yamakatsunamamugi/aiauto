@@ -601,6 +601,12 @@ class MainWindow:
         
     def run_automation(self):
         """自動化実行（別スレッド）"""
+        # 非同期関数をスレッドで実行
+        import asyncio
+        asyncio.run(self._run_automation_async())
+    
+    async def _run_automation_async(self):
+        """自動化実行（非同期版）"""
         try:
             # タスク行を取得
             task_rows = self.data_handler.create_task_rows(self.current_sheet_structure)
@@ -629,6 +635,19 @@ class MainWindow:
                         # AI設定を更新
                         task_row.ai_config.ai_service = AIService(config['ai_service'])
                         task_row.ai_config.ai_model = config['ai_model']
+                        
+                        # 拡張設定も適用
+                        if 'ai_features' in config:
+                            task_row.ai_config.ai_features = config['ai_features']
+                        if 'ai_mode' in config:
+                            task_row.ai_config.ai_mode = config['ai_mode']
+                        if 'ai_settings' in config:
+                            task_row.ai_config.ai_settings = config.get('ai_settings', {})
+                            
+                        # ログに詳細設定を表示
+                        features_info = f" 機能: {', '.join(config.get('ai_features', []))}" if config.get('ai_features') else ""
+                        mode_info = f" モード: {config.get('ai_mode', 'default')}" if config.get('ai_mode', 'default') != 'default' else ""
+                        self.add_log_entry(f"🎛️ 列{copy_col_letter}設定:{features_info}{mode_info}")
                     
                     # 進捗更新
                     progress = (i / total_tasks) * 100
@@ -641,11 +660,13 @@ class MainWindow:
                     # AI処理（実際の処理）
                     result_text = None
                     try:
-                        # ChromeAIExtension方式でAI処理を試行
-                        result_text = self._process_with_chrome_extension(
+                        # Chrome拡張機能方式でAI処理を試行
+                        result_text = await self._process_with_chrome_extension(
                             task_row.copy_text,
                             task_row.ai_config.ai_service.value,
-                            task_row.ai_config.ai_model
+                            task_row.ai_config.ai_model,
+                            task_row.ai_config.ai_features,
+                            task_row.ai_config.ai_mode
                         )
                     except Exception as chrome_error:
                         self.add_log_entry(f"Chrome拡張エラー: {chrome_error}")
@@ -752,9 +773,26 @@ class MainWindow:
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
             )
             if filename:
-                # TODO: 設定保存処理
+                # 設定データを構築
+                config_data = {
+                    "sheet_url": self.sheet_url_var.get(),
+                    "sheet_name": self.sheet_name_var.get(),
+                    "ai_service": self.ai_service_var.get(),
+                    "ai_model": self.ai_model_var.get(),
+                    "column_ai_config": self.column_ai_config,
+                    "saved_at": datetime.now().isoformat()
+                }
+                
+                # JSONファイルに保存
+                import json
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, indent=2, ensure_ascii=False)
+                
                 self.add_log_entry(f"💾 設定を保存しました: {filename}")
+                self.add_log_entry(f"📊 列設定: {len(self.column_ai_config)}列分保存")
+                
         except Exception as e:
+            self.add_log_entry(f"❌ 設定保存エラー: {e}")
             messagebox.showerror("エラー", f"設定保存に失敗しました: {e}")
             
     def load_config(self):
@@ -765,9 +803,38 @@ class MainWindow:
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
             )
             if filename:
-                # TODO: 設定読込処理
+                # JSONファイルから読込
+                import json
+                with open(filename, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                
+                # 設定を復元
+                if 'sheet_url' in config_data:
+                    self.sheet_url_var.set(config_data['sheet_url'])
+                if 'sheet_name' in config_data:
+                    self.sheet_name_var.set(config_data['sheet_name'])
+                if 'ai_service' in config_data:
+                    self.ai_service_var.set(config_data['ai_service'])
+                    self.on_ai_service_changed()  # モデルリストを更新
+                if 'ai_model' in config_data:
+                    self.ai_model_var.set(config_data['ai_model'])
+                if 'column_ai_config' in config_data:
+                    self.column_ai_config = config_data['column_ai_config']
+                
+                # UI更新
                 self.add_log_entry(f"📁 設定を読み込みました: {filename}")
+                if 'saved_at' in config_data:
+                    self.add_log_entry(f"📅 保存日時: {config_data['saved_at']}")
+                if 'column_ai_config' in config_data:
+                    column_count = len(config_data['column_ai_config'])
+                    self.add_log_entry(f"📊 列設定: {column_count}列分読込")
+                
+                # シート情報を再読込（自動的に列AI設定が適用される）
+                if self.sheet_url_var.get():
+                    self.load_sheet_info()
+                
         except Exception as e:
+            self.add_log_entry(f"❌ 設定読込エラー: {e}")
             messagebox.showerror("エラー", f"設定読込に失敗しました: {e}")
             
     def clear_log(self):
@@ -905,6 +972,9 @@ class MainWindow:
             # 初期モデルリスト更新
             self._update_column_model_options(col_letter)
             
+            # 初期状態更新
+            self._update_column_status(col_letter)
+            
             col_idx += 1
             
     def _on_column_service_changed(self, column):
@@ -949,10 +1019,17 @@ class MainWindow:
         """列のAI設定を保存"""
         widgets = self.column_ai_widgets.get(column)
         if widgets:
-            self.column_ai_config[column] = {
+            # 既存の設定を取得し、拡張
+            current_config = self.column_ai_config.get(column, {})
+            current_config.update({
                 "ai_service": widgets["service_var"].get(),
                 "ai_model": widgets["model_var"].get()
-            }
+            })
+            self.column_ai_config[column] = current_config
+            
+            # 状態を更新
+            self._update_column_status(column)
+            
             # プレビューを更新
             if self.current_sheet_structure and self.current_task_rows:
                 self._update_preview_display(self.current_sheet_structure, self.current_task_rows)
@@ -1106,6 +1183,105 @@ class MainWindow:
         except Exception as e:
             self.add_log_entry(f"❌ モデル編集エラー: {e}")
             messagebox.showerror("エラー", f"モデル編集エラー: {e}")
+    
+    def _open_column_detail_settings(self, column):
+        """列の詳細設定ダイアログを開く"""
+        try:
+            widgets = self.column_ai_widgets.get(column)
+            if not widgets:
+                return
+                
+            service = widgets["service_var"].get()
+            model = widgets["model_var"].get()
+            
+            # 現在の設定を取得
+            current_config = self.column_ai_config.get(column, {})
+            
+            # 詳細設定ダイアログを表示
+            dialog = ColumnDetailSettingsDialog(
+                self.root, 
+                column, 
+                service, 
+                model, 
+                current_config
+            )
+            result = dialog.show()
+            
+            if result:
+                # 設定を保存
+                self.column_ai_config[column] = result
+                self._update_column_status(column)
+                self.add_log_entry(f"✅ 列{column}の詳細設定を更新しました")
+                
+        except Exception as e:
+            self.add_log_entry(f"❌ 詳細設定エラー: {e}")
+            messagebox.showerror("エラー", f"詳細設定エラー: {e}")
+    
+    def _update_column_status(self, column):
+        """列の状態を更新"""
+        try:
+            widgets = self.column_ai_widgets.get(column)
+            if not widgets:
+                return
+                
+            config = self.column_ai_config.get(column, {})
+            
+            # 設定の完全性をチェック
+            service = config.get("ai_service")
+            model = config.get("ai_model")
+            features = config.get("ai_features", [])
+            
+            if service and model:
+                if features:
+                    status_text = f"設定完了 ({len(features)}機能)"
+                    color = "green"
+                else:
+                    status_text = "基本設定"
+                    color = "blue"
+            else:
+                status_text = "未設定"
+                color = "orange"
+                
+            widgets["status_var"].set(status_text)
+            widgets["status_label"].configure(foreground=color)
+            
+        except Exception as e:
+            logger.warning(f"状態更新エラー: {e}")
+    
+    async def _process_with_chrome_extension(self, text: str, ai_service: str, ai_model: str, ai_features: list = None, ai_mode: str = "default"):
+        """Chrome拡張機能を使用してAI処理を実行"""
+        try:
+            # Chrome拡張機能へのブリッジ処理（デモ実装）
+            # 実際の実装では Chrome Extension Bridge を使用
+            from src.automation.extension_bridge import ChromeExtensionBridge
+            
+            bridge = ChromeExtensionBridge()
+            
+            # AI設定を構築
+            ai_config = {
+                "service": ai_service,
+                "model": ai_model,
+                "features": ai_features or [],
+                "mode": ai_mode,
+                "text": text
+            }
+            
+            # Chrome拡張機能経由でAI処理
+            result = await bridge.process_ai_request(ai_config)
+            
+            if result and result.get("success"):
+                return result.get("response", "処理完了")
+            else:
+                error_msg = result.get("error", "不明なエラー") if result else "レスポンスなし"
+                raise Exception(f"Chrome拡張機能エラー: {error_msg}")
+                
+        except ImportError:
+            # Chrome拡張機能ブリッジが利用できない場合のフォールバック
+            self.add_log_entry("⚠️ Chrome拡張機能ブリッジが利用できません。デモモードで動作します。")
+            return f"[デモ] {ai_service}({ai_model})で処理: {text[:50]}... → 処理完了"
+            
+        except Exception as e:
+            raise Exception(f"Chrome拡張機能処理エラー: {e}")
         
     def run(self):
         """GUIアプリケーション実行"""
@@ -1124,6 +1300,143 @@ class MainWindow:
             if self.automation_controller:
                 # TODO: クリーンアップ処理
                 pass
+
+
+class ColumnDetailSettingsDialog:
+    """列の詳細設定ダイアログ"""
+    
+    def __init__(self, parent, column, service, model, current_config):
+        self.parent = parent
+        self.column = column
+        self.service = service
+        self.model = model
+        self.current_config = current_config.copy()
+        self.result = None
+        
+        # ダイアログウィンドウ作成
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(f"列{column} 詳細設定")
+        self.dialog.geometry("500x600")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """ダイアログUIセットアップ"""
+        main_frame = ttk.Frame(self.dialog, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 基本情報
+        info_frame = ttk.LabelFrame(main_frame, text="基本情報", padding="5")
+        info_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(info_frame, text=f"列: {self.column}").pack(anchor=tk.W)
+        ttk.Label(info_frame, text=f"AIサービス: {self.service}").pack(anchor=tk.W)
+        ttk.Label(info_frame, text=f"モデル: {self.model}").pack(anchor=tk.W)
+        
+        # AI機能設定
+        self.create_features_section(main_frame)
+        
+        # カスタム設定
+        self.create_custom_settings_section(main_frame)
+        
+        # ボタン
+        self.create_buttons(main_frame)
+        
+    def create_features_section(self, parent):
+        """機能設定セクション"""
+        frame = ttk.LabelFrame(parent, text="AI機能設定", padding="5")
+        frame.pack(fill=tk.X, pady=5)
+        
+        # 現在の機能を取得
+        current_features = self.current_config.get("ai_features", [])
+        
+        # サービス別の利用可能機能
+        available_features = self._get_available_features(self.service)
+        
+        self.feature_vars = {}
+        for feature in available_features:
+            var = tk.BooleanVar(value=feature in current_features)
+            self.feature_vars[feature] = var
+            cb = ttk.Checkbutton(frame, text=feature, variable=var)
+            cb.pack(anchor=tk.W, padx=5, pady=2)
+    
+    def create_custom_settings_section(self, parent):
+        """カスタム設定セクション"""
+        frame = ttk.LabelFrame(parent, text="カスタム設定", padding="5")
+        frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # モード設定
+        mode_frame = ttk.Frame(frame)
+        mode_frame.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(mode_frame, text="モード:").pack(side=tk.LEFT)
+        self.mode_var = tk.StringVar(value=self.current_config.get("ai_mode", "default"))
+        mode_combo = ttk.Combobox(
+            mode_frame, 
+            textvariable=self.mode_var,
+            values=["default", "creative", "precise", "balanced"],
+            state="readonly",
+            width=15
+        )
+        mode_combo.pack(side=tk.LEFT, padx=5)
+        
+        # 設定メモ
+        ttk.Label(frame, text="設定メモ:").pack(anchor=tk.W, pady=(10, 2))
+        self.settings_text = scrolledtext.ScrolledText(frame, height=6, wrap=tk.WORD)
+        self.settings_text.pack(fill=tk.BOTH, expand=True)
+        
+        # 現在の設定を表示
+        current_memo = self.current_config.get("settings_memo", "")
+        if current_memo:
+            self.settings_text.insert(tk.END, current_memo)
+    
+    def create_buttons(self, parent):
+        """ボタンセクション"""
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Button(frame, text="キャンセル", command=self.cancel).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(frame, text="保存", command=self.save).pack(side=tk.RIGHT)
+    
+    def _get_available_features(self, service):
+        """サービス別の利用可能機能を取得"""
+        features_map = {
+            "chatgpt": ["Deep Think", "画像認識", "コード実行", "Web検索", "画像生成"],
+            "claude": ["Deep Think", "画像認識", "アーティファクト", "プロジェクト"],
+            "gemini": ["Deep Think", "画像認識", "マルチモーダル", "コード実行"],
+            "genspark": ["Deep Think", "リサーチ", "引用"],
+            "google_ai_studio": ["Deep Think", "画像認識", "マルチモーダル", "コード実行"]
+        }
+        return features_map.get(service, ["Deep Think"])
+    
+    def save(self):
+        """設定を保存"""
+        # 選択された機能を収集
+        selected_features = [feature for feature, var in self.feature_vars.items() if var.get()]
+        
+        # 設定を更新
+        self.result = self.current_config.copy()
+        self.result.update({
+            "ai_service": self.service,
+            "ai_model": self.model,
+            "ai_features": selected_features,
+            "ai_mode": self.mode_var.get(),
+            "settings_memo": self.settings_text.get(1.0, tk.END).strip()
+        })
+        
+        self.dialog.destroy()
+    
+    def cancel(self):
+        """キャンセル"""
+        self.result = None
+        self.dialog.destroy()
+    
+    def show(self):
+        """ダイアログを表示し、結果を返す"""
+        self.dialog.wait_window()
+        return self.result
 
 
 def main():

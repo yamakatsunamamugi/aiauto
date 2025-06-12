@@ -53,7 +53,7 @@ class SheetParser:
             sheets_client: Sheets APIクライアント
         """
         self.sheets_client = sheets_client
-        self.work_header_text = "作業指示行"  # CLAUDE.md仕様
+        self.work_header_text = "作業"  # CLAUDE.md仕様（A列に「作業」という文字列）
         self.copy_header_text = "コピー"  # CLAUDE.md仕様
         self.work_header_row = 4  # 実際のシート構造に合わせて変更（1ベース）
         
@@ -78,10 +78,10 @@ class SheetParser:
             if not all_data:
                 raise ParseError("シートデータの読み取りに失敗しました")
             
-            # 「作業指示行」ヘッダー行を検索
+            # 「作業」ヘッダー行を検索（5行目のA列を想定）
             work_row_index = self._find_work_header_row(all_data)
             if work_row_index is None:
-                raise ParseError(f"「{self.work_header_text}」ヘッダー行が見つかりません")
+                raise ParseError(f"A列に「{self.work_header_text}」が含まれる行が見つかりません（通常は5行目）")
             
             work_header_row = work_row_index + 1  # 1ベースに変換
             
@@ -184,16 +184,18 @@ class SheetParser:
             Optional[int]: 「作業指示行」行のインデックス（0ベース）
         """
         try:
-            # 実際のシート構造に合わせて4行目から検索開始
-            start_row = self.work_header_row - 1  # 0ベースに変換
+            # CLAUDE.md仕様：5行目のA列に「作業」があることを想定（幅広く4〜10行目を検索）
+            start_row = 3  # 4行目から検索開始（0ベース）
             
-            for row_index in range(start_row, min(len(all_data), start_row + 5)):
+            for row_index in range(start_row, min(len(all_data), 10)):  # 最大10行目まで検索
                 row_data = all_data[row_index]
                 
-                # A列（インデックス0）に「作業指示行」があるかチェック
-                if row_data and row_data[0].strip() == self.work_header_text:
-                    logger.info(f"「{self.work_header_text}」ヘッダー発見: 行{row_index + 1}")
-                    return row_index
+                # A列（インデックス0）に「作業」が含まれるかチェック
+                if row_data and len(row_data) > 0:
+                    cell_value = str(row_data[0]).strip()
+                    if self.work_header_text in cell_value:  # 「作業」が含まれることをチェック
+                        logger.info(f"「{self.work_header_text}」を含むヘッダー発見: 行{row_index + 1} (値: '{cell_value}')")
+                        return row_index
             
             return None
             
