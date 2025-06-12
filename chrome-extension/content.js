@@ -40,7 +40,12 @@ class AIAutomationContent {
                 responseContainer: '[data-message-author-role="assistant"], .message-content',
                 modelOptions: '[data-testid="model-option"], .model-option',
                 stopButton: 'button[data-testid="stop-button"]',
-                loadingIndicator: '.result-streaming, .generating'
+                loadingIndicator: '.result-streaming, .generating',
+                // 高度な設定
+                settingsButton: 'button[aria-label="Settings"], .settings-button',
+                deepThinkToggle: '[data-testid="deep-think"], .deep-think-toggle',
+                customInstructions: '.custom-instructions, [data-testid="custom-instructions"]',
+                temperatureSlider: '.temperature-slider, [data-testid="temperature"]'
             },
             claude: {
                 modelSelector: '.model-selector-button, button[aria-label*="model"]',

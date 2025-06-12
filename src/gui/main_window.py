@@ -828,6 +828,8 @@ class MainWindow:
         ttk.Label(self.column_ai_scrollable_frame, text="列", font=("", 9, "bold")).grid(row=0, column=0, padx=5, pady=2, sticky=tk.W)
         ttk.Label(self.column_ai_scrollable_frame, text="AIサービス", font=("", 9, "bold")).grid(row=1, column=0, padx=5, pady=2, sticky=tk.W)
         ttk.Label(self.column_ai_scrollable_frame, text="モデル", font=("", 9, "bold")).grid(row=2, column=0, padx=5, pady=2, sticky=tk.W)
+        ttk.Label(self.column_ai_scrollable_frame, text="詳細設定", font=("", 9, "bold")).grid(row=3, column=0, padx=5, pady=2, sticky=tk.W)
+        ttk.Label(self.column_ai_scrollable_frame, text="状態", font=("", 9, "bold")).grid(row=4, column=0, padx=5, pady=2, sticky=tk.W)
         
         # 各列の設定
         self.column_ai_widgets = {}
@@ -862,12 +864,34 @@ class MainWindow:
             )
             model_combo.grid(row=2, column=col_idx, padx=5, pady=2)
             
+            # 詳細設定ボタン
+            detail_btn = ttk.Button(
+                self.column_ai_scrollable_frame,
+                text="設定",
+                command=lambda c=col_letter: self._open_column_detail_settings(c),
+                width=12
+            )
+            detail_btn.grid(row=3, column=col_idx, padx=5, pady=2)
+            
+            # 状態表示
+            status_var = tk.StringVar(value="未設定")
+            status_label = ttk.Label(
+                self.column_ai_scrollable_frame,
+                textvariable=status_var,
+                foreground="orange",
+                font=("", 8)
+            )
+            status_label.grid(row=4, column=col_idx, padx=5, pady=2)
+            
             # ウィジェット保存
             self.column_ai_widgets[col_letter] = {
                 "service_var": service_var,
                 "model_var": model_var,
                 "service_combo": service_combo,
-                "model_combo": model_combo
+                "model_combo": model_combo,
+                "detail_btn": detail_btn,
+                "status_var": status_var,
+                "status_label": status_label
             }
             
             # サービス変更時のイベント
