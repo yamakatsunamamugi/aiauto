@@ -53,7 +53,7 @@ class SheetParser:
             sheets_client: Sheets APIクライアント
         """
         self.sheets_client = sheets_client
-        self.work_header_text = "作業"  # CLAUDE.md仕様
+        self.work_header_text = "作業指示行"  # CLAUDE.md仕様
         self.copy_header_text = "コピー"  # CLAUDE.md仕様
         self.work_header_row = 5  # CLAUDE.md仕様（1ベース）
         
@@ -78,7 +78,7 @@ class SheetParser:
             if not all_data:
                 raise ParseError("シートデータの読み取りに失敗しました")
             
-            # 「作業」ヘッダー行を検索
+            # 「作業指示行」ヘッダー行を検索
             work_row_index = self._find_work_header_row(all_data)
             if work_row_index is None:
                 raise ParseError(f"「{self.work_header_text}」ヘッダー行が見つかりません")
@@ -179,13 +179,13 @@ class SheetParser:
     
     def _find_work_header_row(self, all_data: List[List[str]]) -> Optional[int]:
         """
-        「作業」ヘッダー行を検索
+        「作業指示行」ヘッダー行を検索
         
         Args:
             all_data: 全シートデータ
             
         Returns:
-            Optional[int]: 「作業」行のインデックス（0ベース）
+            Optional[int]: 「作業指示行」行のインデックス（0ベース）
         """
         try:
             # CLAUDE.md仕様では5行目から検索開始
@@ -194,7 +194,7 @@ class SheetParser:
             for row_index in range(start_row, min(len(all_data), start_row + 5)):
                 row_data = all_data[row_index]
                 
-                # A列（インデックス0）に「作業」があるかチェック
+                # A列（インデックス0）に「作業指示行」があるかチェック
                 if row_data and row_data[0].strip() == self.work_header_text:
                     logger.info(f"「{self.work_header_text}」ヘッダー発見: 行{row_index + 1}")
                     return row_index
